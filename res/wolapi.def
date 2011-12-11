@@ -1,0 +1,4 @@
+LIBRARY     wolapi.dll
+
+EXPORTS
+    DllGetClassObject           @1
