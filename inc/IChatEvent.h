@@ -78,6 +78,12 @@ struct _IChatEventVtbl
 #define IChatEvent_OnMessageOfTheDay(T,a,b) (T)->lpVtbl->OnMessageOfTheDay(T,a,b)
 #define IChatEvent_OnChannelList(T,a,b) (T)->lpVtbl->OnChannelList(T,a,b)
 #define IChatEvent_OnChannelCreate(T,a,b) (T)->lpVtbl->OnChannelCreate(T,a,b)
+#define IChatEvent_OnChannelJoin(T,a,b,c) (T)->lpVtbl->OnChannelJoin(T,a,b,c)
+#define IChatEvent_OnChannelLeave(T,a,b,c) (T)->lpVtbl->OnChannelLeave(T,a,b,c)
+#define IChatEvent_OnChannelTopic(T,a,b,c) (T)->lpVtbl->OnChannelTopic(T,a,b,c)
+#define IChatEvent_OnUserList(T,a,b,c) (T)->lpVtbl->OnUserList(T,a,b,c)
+#define IChatEvent_OnPublicMessage(T,a,b,c,d) (T)->lpVtbl->OnPublicMessage(T,a,b,c,d)
+#define IChatEvent_OnPublicGameOptions(T,a,b,c,d) (T)->lpVtbl->OnPublicGameOptions(T,a,b,c,d)
 
 #define IChatEvent_OnNetStatus(T,a) (T)->lpVtbl->OnNetStatus(T,a)
 

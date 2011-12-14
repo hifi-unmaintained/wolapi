@@ -28,6 +28,7 @@
 #define CHAT_E_CON_ERROR            0x80040069 /* guess */
 #define CHAT_E_TIMEOUT              0x8004006A
 #define CHAT_E_MUSTPATCH            0x8004006C
+#define CHAT_E_JOINCHANNEL          0x800401F5
 
 #define CHAT_S_CON_CONNECTING       S_OK
 #define CHAT_S_CON_CONNECTED        S_OK
@@ -50,6 +51,10 @@ struct _IChat
     int             ref;
     IChatEvent      *ev;
     unsigned long   SKU;
+    Channel         channel;
+    Channel         game;
+    Channel         lobby;
+    User            user;
 };
 
 struct _IChatVtbl

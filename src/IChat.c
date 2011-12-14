@@ -94,33 +94,59 @@ static HRESULT __stdcall IChat_RequestChannelList(IChat *this, int channelType, 
 {
     dprintf("IChat::RequestChannelList(this=%p, channelType=%d, autoping=%d)\n", this, channelType, autoping);
 
-    static Channel chan;
-    chan.type       = 0;
-    chan.official   = 1;
-    chan.latency    = -1;
-    strcpy(chan.name, "Stub");
-    strcpy(chan.topic, "The default channel stub");
+    if (channelType == 0)
+    {
+        this->lobby.flags = 0x84010000;
+        this->lobby.latency = -1;
+        strcpy(this->lobby.name, "Lob_21_0");
 
-    IChatEvent_OnChannelList(this->ev, S_OK, &chan);
+        IChatEvent_OnChannelList(this->ev, S_OK, &this->lobby);
+    }
 
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestChannelCreate(IChat *this, Channel* Channel)
+static HRESULT __stdcall IChat_RequestChannelCreate(IChat *this, Channel* channel)
 {
-    dprintf("IChat::RequestChannelCreate(this=%p, ...)\n", this);
+    dprintf("IChat::RequestChannelCreate(this=%p, channel=%p)\n", this, channel);
+
+    dprintf("    type      : %d\n", channel->type);
+    dprintf("    minUsers  : %d\n", channel->minUsers);
+    dprintf("    maxUsers  : %d\n", channel->maxUsers);
+    dprintf("    tournament: %d\n", channel->tournament);
+    dprintf("    flags     : %08X\n", channel->flags);
+    dprintf("    reserved  : %08X\n", channel->reserved);
+    dprintf("    name      : %s\n", channel->name);
+    dprintf("    topic     : %s\n", channel->topic);
+    dprintf("    key       : %s\n", channel->key);
+    dprintf("    exInfo    : %s\n", channel->exInfo);
+
+    memcpy(&this->game, channel, sizeof(Channel));
+    this->game.currentUsers = 1;
+
+    IChatEvent_OnChannelCreate(this->ev, S_OK, &this->game);
+    IChatEvent_OnUserList(this->ev, S_OK, &this->game, &this->user);
+
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestChannelJoin(IChat *this, Channel* Channel)
+static HRESULT __stdcall IChat_RequestChannelJoin(IChat *this, Channel* channel)
 {
-    dprintf("IChat::RequestChannelJoin(this=%p, ...)\n", this);
+    dprintf("IChat::RequestChannelJoin(this=%p, channel=%p)\n", this, channel);
+
+    memcpy(&this->channel, channel, sizeof(Channel));
+
+    IChatEvent_OnChannelJoin(this->ev, S_OK, &this->channel, &this->user);
+
     return S_OK;
 }
 
 static HRESULT __stdcall IChat_RequestChannelLeave(IChat *this)
 {
-    dprintf("IChat::RequestChannelLeave(this=%p, ...)\n", this);
+    dprintf("IChat::RequestChannelLeave(this=%p)\n", this);
+
+    IChatEvent_OnChannelLeave(this->ev, S_OK, &this->channel, &this->user);
+
     return S_OK;
 }
 
@@ -132,13 +158,16 @@ static HRESULT __stdcall IChat_RequestUserList(IChat *this)
 
 static HRESULT __stdcall IChat_RequestPublicMessage(IChat *this, LPSTR message)
 {
-    dprintf("IChat::RequestPublicMessage(this=%p, ...)\n", this);
+    dprintf("IChat::RequestPublicMessage(this=%p, message=\"%s\")\n", this, message);
+
+    /* Note: don't fire up OnPublicMessage, IRC wouldn't do it and RA 3.03 doesn't seem to expect it either */
+
     return S_OK;
 }
 
 static HRESULT __stdcall IChat_RequestPrivateMessage(IChat *this, User* users, LPSTR message)
 {
-    dprintf("IChat::RequestPrivateMessage(this=%p, ...)\n", this);
+    dprintf("IChat::RequestPrivateMessage(this=%p, users=%p, message=\"%s\")\n", this, users, message);
     return S_OK;
 }
 
@@ -157,7 +186,10 @@ static HRESULT __stdcall IChat_RequestPrivateGameOptions(IChat *this, User* user
 
 static HRESULT __stdcall IChat_RequestPublicGameOptions(IChat *this, LPSTR options)
 {
-    dprintf("IChat::RequestPublicGameOptions(this=%p, ...)\n", this);
+    dprintf("IChat::RequestPublicGameOptions(this=%p, options=\"%s\")\n", this, options);
+
+    IChatEvent_OnPublicGameOptions(this->ev, S_OK, &this->game, &this->user, options);
+
     return S_OK;
 }
 
@@ -405,6 +437,9 @@ IChat *IChat_New()
     IChat *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IChat));
     this->lpVtbl = &Vtbl;
     IChat_AddRef(this);
+
+    /* set self flag, don't know the correct value yet */
+    this->user.flags = 0xFFFFFFF;
 
     /* to get our callback ev pointer */
     IChatSingleton = this;

@@ -50,6 +50,34 @@ static HRESULT __stdcall IWOLConnectionPoint_Advise(IWOLConnectionPoint *this, I
         if (IChatSingleton)
         {
             IChatSingleton->ev = (IChatEvent *)pUnkSink;
+
+            printf("    OnServerList         @ %08X\n", IChatSingleton->ev->lpVtbl->OnServerList);
+            printf("    OnUpdateList         @ %08X\n", IChatSingleton->ev->lpVtbl->OnUpdateList);
+            printf("    OnServerError        @ %08X\n", IChatSingleton->ev->lpVtbl->OnServerError);
+            printf("    OnConnection         @ %08X\n", IChatSingleton->ev->lpVtbl->OnConnection);
+            printf("    OnMessageOfTheDay    @ %08X\n", IChatSingleton->ev->lpVtbl->OnMessageOfTheDay);
+            printf("    OnChannelList        @ %08X\n", IChatSingleton->ev->lpVtbl->OnChannelList);
+            printf("    OnChannelCreate      @ %08X\n", IChatSingleton->ev->lpVtbl->OnChannelCreate);
+            printf("    OnChannelJoin        @ %08X\n", IChatSingleton->ev->lpVtbl->OnChannelJoin);
+            printf("    OnChannelLeave       @ %08X\n", IChatSingleton->ev->lpVtbl->OnChannelLeave);
+            printf("    OnChannelTopic       @ %08X\n", IChatSingleton->ev->lpVtbl->OnChannelTopic);
+            printf("    OnPrivateAction      @ %08X\n", IChatSingleton->ev->lpVtbl->OnPrivateAction);
+            printf("    OnPublicAction       @ %08X\n", IChatSingleton->ev->lpVtbl->OnPublicAction);
+            printf("    OnSystemMessage      @ %08X\n", IChatSingleton->ev->lpVtbl->OnSystemMessage);
+            printf("    OnNetStatus          @ %08X\n", IChatSingleton->ev->lpVtbl->OnNetStatus);
+            printf("    OnLogout             @ %08X\n", IChatSingleton->ev->lpVtbl->OnLogout);
+            printf("    OnPrivateGameOptions @ %08X\n", IChatSingleton->ev->lpVtbl->OnPrivateGameOptions);
+            printf("    OnPublicGameOptions  @ %08X\n", IChatSingleton->ev->lpVtbl->OnPublicGameOptions);
+            printf("    OnGameStart          @ %08X\n", IChatSingleton->ev->lpVtbl->OnGameStart);
+            printf("    OnUserKick           @ %08X\n", IChatSingleton->ev->lpVtbl->OnUserKick);
+            printf("    OnUserIP             @ %08X\n", IChatSingleton->ev->lpVtbl->OnUserIP);
+            printf("    OnFind               @ %08X\n", IChatSingleton->ev->lpVtbl->OnFind);
+            printf("    OnPageSend           @ %08X\n", IChatSingleton->ev->lpVtbl->OnPageSend);
+            printf("    OnPaged              @ %08X\n", IChatSingleton->ev->lpVtbl->OnPaged);
+            printf("    OnServerBannedYou    @ %08X\n", IChatSingleton->ev->lpVtbl->OnServerBannedYou);
+            printf("    OnUserFlags          @ %08X\n", IChatSingleton->ev->lpVtbl->OnUserFlags);
+            printf("    OnChannelBan         @ %08X\n", IChatSingleton->ev->lpVtbl->OnChannelBan);
+            printf("    OnSquadInfo          @ %08X\n", IChatSingleton->ev->lpVtbl->OnSquadInfo);
         }
         *pdwCookie = 1;
         return S_OK;
