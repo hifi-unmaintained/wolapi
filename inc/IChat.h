@@ -15,6 +15,7 @@
  */
 
 #include <wolapi.h>
+#include <libircclient.h>
 
 #ifndef _ICHAT_H_
 #define _ICHAT_H_
@@ -48,13 +49,19 @@ struct _IChat
 {
     IChatVtbl       *lpVtbl;
 
+    char            name[18];
     int             ref;
     IChatEvent      *ev;
     unsigned long   SKU;
     Channel         channel;
     Channel         game;
     Channel         lobby;
+    User            *lobby_users;
     User            user;
+    char            motd[4096];
+
+    irc_session_t   *irc_session;
+    irc_callbacks_t irc_callbacks;
 };
 
 struct _IChatVtbl

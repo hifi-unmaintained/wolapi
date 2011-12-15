@@ -24,6 +24,36 @@ const GUID IID_IChatEvent         = {0x4DD3BAF6,0x7579,0x11D1,{0xB1,0xC6,0x00,0x
 
 IChat *IChatSingleton = NULL;
 
+void user_list_add(User **list, User *user)
+{
+    User *current = *list;
+
+    if (*list == NULL)
+    {
+        *list = user;
+        return;
+    }
+
+    while (current->next)
+    {
+        current = current->next;
+    }
+
+    current->next = user;
+}
+
+void user_list_free(User **list)
+{
+    User *current = *list;
+    while (current)
+    {
+        User *tmp = current;
+        current = current->next;
+        free(tmp);
+    }
+    *list = NULL;
+}
+
 static HRESULT __stdcall IChat_QueryInterface(IChat *this, REFIID riid, void **ppvObject)
 {
     dprintf("IChat::QueryInterface(this=%p, riid={%s}, ppvObject=%p)\n", this, str_GUID(riid), ppvObject);
@@ -55,6 +85,22 @@ static HRESULT __stdcall IChat_PumpMessages(IChat *this)
 #ifdef _VERBOSE
     dprintf("IChat::PumpMessages(this=%p)\n", this);
 #endif
+
+    struct timeval tv = { 0, 0 };
+    fd_set in_set;
+    fd_set out_set;
+    int maxfd = 0;
+
+    FD_ZERO(&in_set);
+    FD_ZERO(&out_set);
+
+    irc_add_select_descriptors(this->irc_session, &in_set, &out_set, &maxfd);
+
+    if (select(maxfd, &in_set, &out_set, NULL, &tv) > 0)
+    {
+        irc_process_select_descriptors(this->irc_session, &in_set, &out_set);
+    }
+
     return S_OK;
 }
 
@@ -62,15 +108,14 @@ static HRESULT __stdcall IChat_RequestServerList(IChat *this, unsigned long SKU,
 {
     dprintf("IChat::RequestServerList(this=%p, SKU=%08X, current_version=%08X, loginname=\"%s\", password=\"%s\", timeout=%d)\n", this, SKU, current_version, loginname, password, timeout);
 
-    static Server srv;
+    Server srv;
     srv.gametype = SKU;
     strcpy(srv.name, "WOLAPI stub");
     strcpy(srv.connlabel, "IRC");
     strcpy(srv.conndata, "TCP:localhost:6667");
+    IChatEvent_OnServerList(this->ev, S_OK, &srv);
 
     this->SKU = SKU; /* for debugging only */
-
-    IChatEvent_OnServerList(this->ev, S_OK, &srv);
 
     return S_OK;
 }
@@ -85,7 +130,17 @@ static HRESULT __stdcall IChat_RequestConnection(IChat *this, Server* server, in
     dprintf("    login    : %s\n", server->login);
     dprintf("    password : %s\n", server->password);
 
-    IChatEvent_OnConnection(this->ev, S_OK, "Welcome to Westwood Online stub implementation!\r\n");
+    strcpy(this->name, "RA-");
+    strcat(this->name, server->login);
+
+    this->lobby.flags = 0x84010000;
+    this->lobby.latency = -1;
+    strcpy(this->lobby.name, "Lob_21_0");
+
+    if (irc_connect(this->irc_session, "localhost", 6667, 0, this->name, 0, 0))
+    {
+        return S_FALSE;
+    }
 
     return S_OK;
 }
@@ -96,10 +151,6 @@ static HRESULT __stdcall IChat_RequestChannelList(IChat *this, int channelType, 
 
     if (channelType == 0)
     {
-        this->lobby.flags = 0x84010000;
-        this->lobby.latency = -1;
-        strcpy(this->lobby.name, "Lob_21_0");
-
         IChatEvent_OnChannelList(this->ev, S_OK, &this->lobby);
     }
 
@@ -134,9 +185,23 @@ static HRESULT __stdcall IChat_RequestChannelJoin(IChat *this, Channel* channel)
 {
     dprintf("IChat::RequestChannelJoin(this=%p, channel=%p)\n", this, channel);
 
+    /* clear old users list always */
+    user_list_free(&this->lobby_users);
+
+    /* if we are already in the lobby, just emulate join */
+    if (this->channel.name[0])
+    {
+        irc_cmd_names(this->irc_session, this->channel.name);
+        return S_OK;
+    }
+
     memcpy(&this->channel, channel, sizeof(Channel));
 
-    IChatEvent_OnChannelJoin(this->ev, S_OK, &this->channel, &this->user);
+    /* force game clients to main channel, use GameServ service for game channels */
+    strcpy(this->channel.name, "#cncnet");
+    this->channel.key[0] = '\0';
+
+    irc_cmd_join(this->irc_session, this->channel.name, this->channel.key);
 
     return S_OK;
 }
@@ -145,7 +210,17 @@ static HRESULT __stdcall IChat_RequestChannelLeave(IChat *this)
 {
     dprintf("IChat::RequestChannelLeave(this=%p)\n", this);
 
+    if (this->game.type)
+    {
+        IChatEvent_OnChannelLeave(this->ev, S_OK, &this->game, &this->user);
+        memset(&this->game, 0, sizeof(Channel));
+        return S_OK;
+    }
+
+    /* you don't leave the lobby channel, ever */
     IChatEvent_OnChannelLeave(this->ev, S_OK, &this->channel, &this->user);
+
+    /*irc_cmd_part(this->irc_session, this->channel.name);*/
 
     return S_OK;
 }
@@ -160,7 +235,7 @@ static HRESULT __stdcall IChat_RequestPublicMessage(IChat *this, LPSTR message)
 {
     dprintf("IChat::RequestPublicMessage(this=%p, message=\"%s\")\n", this, message);
 
-    /* Note: don't fire up OnPublicMessage, IRC wouldn't do it and RA 3.03 doesn't seem to expect it either */
+    irc_cmd_msg(this->irc_session, this->channel.name, message);
 
     return S_OK;
 }
@@ -174,7 +249,9 @@ static HRESULT __stdcall IChat_RequestPrivateMessage(IChat *this, User* users, L
 static HRESULT __stdcall IChat_RequestLogout(IChat *this)
 {
     dprintf("IChat::RequestLogout(this=%p)\n", this);
-    IChatEvent_OnNetStatus(this->ev, CHAT_S_CON_DISCONNECTED);
+
+    irc_cmd_quit(this->irc_session, NULL);
+
     return S_OK;
 }
 
@@ -195,7 +272,10 @@ static HRESULT __stdcall IChat_RequestPublicGameOptions(IChat *this, LPSTR optio
 
 static HRESULT __stdcall IChat_RequestPublicAction(IChat *this, LPSTR action)
 {
-    dprintf("IChat::RequestPublicAction(this=%p, ...)\n", this);
+    dprintf("IChat::RequestPublicAction(this=%p, action=\"%s\")\n", this, action);
+
+    irc_cmd_me(this->irc_session, this->channel.name, action);
+
     return S_OK;
 }
 
@@ -322,8 +402,8 @@ static HRESULT __stdcall IChat_GetNick(IChat *this, int num, LPSTR* nick, LPSTR*
     /* just throw something back so the game won't ask for registration */
     if (num == 1)
     {
-        *nick = "Guest";
-        *pass = "Guest";
+        *nick = "WOLGuest";
+        *pass = "guest";
         return S_OK;
     }
 
@@ -430,9 +510,185 @@ static IChatVtbl Vtbl =
     IChat_RequestSquadInfo
 };
 
+void irc_split_origin(const char *in, char *nick, char *host)
+{
+    int i,dpos = 0;
+    char *dst = nick;
+    printf("irc_split_origin(\"%s\", \"%s\", \"%s\"\n", in, nick, host);
+    for (i = 0; i < strlen(in); i++)
+    {
+        if (in[i] == '!')
+        {
+            dst = host;
+            dpos = 0;
+        }
+        else if (dst)
+        {
+            dst[dpos++] = in[i];
+        }
+    }
+}
+
+void irc_dump_event(irc_session_t * session, const char * event, const char * origin, const char ** params, unsigned int count)
+{                                                                                                                          
+    char buf[512] = { 0 };
+    int cnt;
+
+    for (cnt = 0; cnt < count; cnt++)
+    {
+        if (cnt)
+            strcat (buf, "|");
+
+        strcat (buf, params[cnt]);
+    }
+
+    printf("IRC event \"%s\", origin: \"%s\", params: %d [%s]\n", event, origin ? origin : "NULL", cnt, buf);
+} 
+
+void irc_event_numeric(irc_session_t * session, unsigned int event, const char * origin, const char ** params, unsigned int count)
+{
+    IChat *this = irc_get_ctx(session);
+
+    char buf[512] = { 0 };
+    int cnt;
+
+    for (cnt = 0; cnt < count; cnt++)
+    {
+        if (cnt)
+            strcat (buf, "|");
+
+        strcat (buf, params[cnt]);
+    }
+
+    if (event == LIBIRC_RFC_ERR_NICKNAMEINUSE)
+    {
+        IChatEvent_OnConnection(this->ev, CHAT_E_NICKINUSE, NULL);
+        irc_cmd_quit(session, NULL);
+        return;
+    }
+
+    if (event == LIBIRC_RFC_RPL_MOTD)
+    {
+        strncat(this->motd, params[1], sizeof(this->motd)-1);
+        strncat(this->motd, "\r\n", sizeof(this->motd)-1);
+    }
+
+    if (event == LIBIRC_RFC_RPL_ENDOFMOTD)
+    {
+        printf(this->motd);
+        IChatEvent_OnConnection(this->ev, S_OK, this->motd);
+    }
+
+    if (event == LIBIRC_RFC_RPL_NAMREPLY)
+    {
+        strcpy(buf, params[3]);
+        char *name = strtok(buf, " ");
+        do {
+            if (name)
+            {
+                User *user = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(User));
+                if (name[0] == '@' || name[0] == '+')
+                    name++;
+                strcpy(user->name, name);
+                user_list_add(&this->lobby_users, user);
+            }
+        } while((name = strtok(NULL, " ")));
+    }
+
+    if (event == LIBIRC_RFC_RPL_ENDOFNAMES)
+    {
+        IChatEvent_OnChannelJoin(this->ev, S_OK, &this->lobby, &this->user);
+        IChatEvent_OnUserList(this->ev, S_OK, &this->lobby, this->lobby_users);
+    }
+
+    printf("IRC event \"%03d\", origin: \"%s\", params: %d [%s]\n", event, origin ? origin : "NULL", cnt, buf);
+}
+
+void irc_event_join(irc_session_t * session, const char * event, const char * origin, const char ** params, unsigned int count)
+{
+    IChat *this = irc_get_ctx(session);
+    User user;
+    memset(&user, 0, sizeof(User));
+
+    if (this->game.type)
+    {
+        return;
+    }
+
+    irc_split_origin(origin, user.name, NULL);
+
+    if (strcmp(user.name, this->name) == 0)
+    {
+        /* set user flags, don't know which is "me" */
+        user.flags = 0xFFFFFFF;
+    }
+
+    IChatEvent_OnChannelJoin(this->ev, S_OK, &this->channel, &user);
+}
+
+void irc_event_part(irc_session_t * session, const char * event, const char * origin, const char ** params, unsigned int count)
+{
+    IChat *this = irc_get_ctx(session);
+    User user;
+
+    if (this->game.type)
+    {
+        return;
+    }
+
+    irc_split_origin(origin, user.name, NULL);
+
+    if (strcmp(user.name, this->name) == 0)
+    {
+        /* set user flags, don't know which is "me" */
+        user.flags = 0xFFFFFFF;
+    }
+
+    IChatEvent_OnChannelLeave(this->ev, S_OK, &this->channel, &user);
+}
+
+void irc_event_channel(irc_session_t * session, const char * event, const char * origin, const char ** params, unsigned int count)
+{
+    IChat *this = irc_get_ctx(session);
+
+    if (this->game.type)
+    {
+        return;
+    }
+
+    if (strcmp(params[0], this->channel.name) == 0)
+    {
+        User user;
+        memset(user.name, 0, sizeof(user.name));
+        irc_split_origin(origin, user.name, NULL);
+        IChatEvent_OnPublicMessage(this->ev, S_OK, &this->channel, &user, (LPSTR)params[1]);
+    }
+}
+
+void irc_event_action(irc_session_t * session, const char * event, const char * origin, const char ** params, unsigned int count)
+{
+    IChat *this = irc_get_ctx(session);
+
+    if (this->game.type)
+    {
+        return;
+    }
+
+    if (strcmp(params[0], this->channel.name) == 0)
+    {
+        User user;
+        memset(user.name, 0, sizeof(user.name));
+        irc_split_origin(origin, user.name, NULL);
+        IChatEvent_OnPublicAction(this->ev, S_OK, &this->channel, &user, (LPSTR)params[1]);
+    }
+}
+
 IChat *IChat_New()
 {
     dprintf("IChat::New()\n");
+
+    WSADATA wsaData;
+    WSAStartup(0x0101, &wsaData);
 
     IChat *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IChat));
     this->lpVtbl = &Vtbl;
@@ -440,6 +696,27 @@ IChat *IChat_New()
 
     /* set self flag, don't know the correct value yet */
     this->user.flags = 0xFFFFFFF;
+
+    /*this->irc_callbacks.event_connect = irc_event_connect;*/
+    this->irc_callbacks.event_join = irc_event_join;
+    this->irc_callbacks.event_nick = irc_dump_event;
+    this->irc_callbacks.event_quit = irc_dump_event;
+    this->irc_callbacks.event_part = irc_event_part;
+    this->irc_callbacks.event_mode = irc_dump_event;
+    this->irc_callbacks.event_topic = irc_dump_event;
+    this->irc_callbacks.event_kick = irc_dump_event;
+    this->irc_callbacks.event_channel = irc_event_channel;
+    this->irc_callbacks.event_privmsg = irc_dump_event;
+    this->irc_callbacks.event_notice = irc_dump_event;
+    this->irc_callbacks.event_invite = irc_dump_event;
+    this->irc_callbacks.event_umode = irc_dump_event;
+    this->irc_callbacks.event_ctcp_rep = irc_dump_event;
+    this->irc_callbacks.event_ctcp_action = irc_event_action;
+    this->irc_callbacks.event_unknown = irc_dump_event;
+    this->irc_callbacks.event_numeric = irc_event_numeric;
+
+    this->irc_session = irc_create_session(&this->irc_callbacks);
+    irc_set_ctx(this->irc_session, this);
 
     /* to get our callback ev pointer */
     IChatSingleton = this;
