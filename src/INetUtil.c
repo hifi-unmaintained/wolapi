@@ -35,6 +35,13 @@ static HRESULT __stdcall INetUtil_QueryInterface(INetUtil *this, REFIID riid, vo
         return S_OK;
     }
 
+    if (IsEqualIID(riid, &IID_INetUtil))
+    {
+        dprintf(" INetUtil interface requested, returning self\n");
+        *ppvObject = this;
+        return S_OK;
+    }
+
     return E_NOINTERFACE;
 }
 

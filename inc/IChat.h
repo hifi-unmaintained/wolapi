@@ -15,10 +15,18 @@
  */
 
 #include <wolapi.h>
-#include <libircclient.h>
 
 #ifndef _ICHAT_H_
 #define _ICHAT_H_
+
+#define WOL_RPL_ENDOFMOTD           376
+#define WOL_RPL_LISTSTART           321
+#define WOL_RPL_LISTGAME            326
+#define WOL_RPL_LIST                327
+#define WOL_RPL_LISTEND             323
+#define WOL_RPL_TOPIC               332
+#define WOL_RPL_NAMREPLY            353
+#define WOL_RPL_ENDOFNAMES          366
 
 /* IChat Interface */
 
@@ -53,15 +61,13 @@ struct _IChat
     int             ref;
     IChatEvent      *ev;
     unsigned long   SKU;
-    Channel         channel;
-    Channel         game;
-    Channel         lobby;
-    User            *lobby_users;
+    Server          server;
     User            user;
+    User            *users;
+    Channel         channel;
+    Channel         *channels;
     char            motd[4096];
-
-    irc_session_t   *irc_session;
-    irc_callbacks_t irc_callbacks;
+    int             s;
 };
 
 struct _IChatVtbl
