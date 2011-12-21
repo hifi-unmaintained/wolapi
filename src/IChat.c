@@ -194,15 +194,13 @@ void irc_process_line(IChat *this, const char *line)
                     if (sscanf(p, "%15[^,],%*u,%*u", name))
                     {
                         if (name[0] == '@')
-                            strncpy(user->name, name+1, 10);
-                        else
-                            strncpy(user->name, name, 10);
-
-                        /* FIXME: use correct self flag */
-                        if (strcmp(user->name, this->user.name) == 0)
                         {
+                            strncpy(user->name, name+1, 10);
+                            /* FIXME: user correct flag */
                             user->flags = 0xFFFFFFFF;
                         }
+                        else
+                            strncpy(user->name, name, 10);
 
                         user_list_add(&this->users, user);
                     }
@@ -224,6 +222,7 @@ void irc_process_line(IChat *this, const char *line)
             this->channel.minUsers = atoi(target);
             if (sscanf(params, "%u %d %*d %*d %*d %u :#%16s", &this->channel.maxUsers, &this->channel.type, &this->channel.tournament, this->channel.name))
             {
+                IChatEvent_OnChannelJoin(this->ev, S_OK, &this->channel, &this->user);
                 IChatEvent_OnChannelCreate(this->ev, S_OK, &this->channel);
             }
         }
@@ -265,11 +264,32 @@ void irc_process_line(IChat *this, const char *line)
                 user.flags = 0xFFFFFFFF;
             }
 
+            printf("%s joined %s\n", user.name, channel.name);
+
             IChatEvent_OnChannelJoin(this->ev, S_OK, &channel, &user);
         }
         else if (strcmp(cmd, "PING") == 0)
         {
             irc_printf(this, "PONG :%s", params);
+        }
+        else if (strcmp(cmd, "GAMEOPT") == 0)
+        {
+            User user;
+            memset(&user, 0, sizeof(User));
+
+            printf("GAMEOPT from %s to %s: %s\n", origin, target, params);
+
+            if (target[0] == '#')
+            {
+                Channel channel;
+                memset(&channel, 0, sizeof(Channel));
+                strcpy(channel.name, target+1);
+                IChatEvent_OnPublicGameOptions(this->ev, S_OK, &channel, &user, params+1);
+            }
+            else
+            {
+                IChatEvent_OnPrivateGameOptions(this->ev, S_OK, &user, params+1);
+            }
         }
         else
         {
@@ -470,8 +490,7 @@ static HRESULT __stdcall IChat_RequestChannelJoin(IChat *this, Channel* channel)
 {
     dprintf("IChat::RequestChannelJoin(this=%p, channel=%p)\n", this, channel);
 
-    /* FIXME: game channel join is in different format */
-    irc_printf(this, "JOINGAME #%s 1 zotclot9", channel->name);
+    irc_printf(this, "JOINGAME #%s 1 %s", channel->name, channel->key);
 
     return S_OK;
 }
@@ -521,13 +540,18 @@ static HRESULT __stdcall IChat_RequestLogout(IChat *this)
 
 static HRESULT __stdcall IChat_RequestPrivateGameOptions(IChat *this, User* users, LPSTR options)
 {
-    dprintf("IChat::RequestPrivateGameOptions(this=%p, ...)\n", this);
+    dprintf("IChat::RequestPrivateGameOptions(this=%p, user=%p, options=\"%s\")\n", this, users, options);
+
+    irc_printf(this, "GAMEOPT %s :%s", users->name, options);
+
     return S_OK;
 }
 
 static HRESULT __stdcall IChat_RequestPublicGameOptions(IChat *this, LPSTR options)
 {
     dprintf("IChat::RequestPublicGameOptions(this=%p, options=\"%s\")\n", this, options);
+
+    irc_printf(this, "GAMEOPT #%s :%s", this->channel.name, options);
 
     return S_OK;
 }

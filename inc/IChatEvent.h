@@ -86,6 +86,7 @@ struct _IChatEventVtbl
 #define IChatEvent_OnPublicMessage(T,a,b,c,d) (T)->lpVtbl->OnPublicMessage(T,a,b,c,d)
 #define IChatEvent_OnPrivateMessage(T,a,b,c) (T)->lpVtbl->OnPrivateMessage(T,a,b,c)
 #define IChatEvent_OnSystemMessage(T,a,b) (T)->lpVtbl->OnSystemMessage(T,a,b)
+#define IChatEvent_OnPrivateGameOptions(T,a,b,c) (T)->lpVtbl->OnPrivateGameOptions(T,a,b,c)
 #define IChatEvent_OnPublicGameOptions(T,a,b,c,d) (T)->lpVtbl->OnPublicGameOptions(T,a,b,c,d)
 
 #define IChatEvent_OnNetStatus(T,a) (T)->lpVtbl->OnNetStatus(T,a)
