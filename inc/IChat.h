@@ -19,15 +19,6 @@
 #ifndef _ICHAT_H_
 #define _ICHAT_H_
 
-#define WOL_RPL_ENDOFMOTD           376
-#define WOL_RPL_LISTSTART           321
-#define WOL_RPL_LISTGAME            326
-#define WOL_RPL_LIST                327
-#define WOL_RPL_LISTEND             323
-#define WOL_RPL_TOPIC               332
-#define WOL_RPL_NAMREPLY            353
-#define WOL_RPL_ENDOFNAMES          366
-
 /* IChat Interface */
 
 #define CHAT_E_NICKINUSE            0x80040064
@@ -48,6 +39,13 @@
 #define CHAT_E_SERIALBANNED         E_FAIL
 #define CHAT_E_SERIALDUP            E_FAIL
 
+#define CHAT_USER_CHANNELOWNER      (1 << 0)    /* @ */
+#define CHAT_USER_VOICE             (1 << 1)    /* + */
+#define CHAT_USER_SQUELCHED         (1 << 2)
+#define CHAT_USER_MYSELF            (1 << 15)
+
+#define CHAN_MODE_KEY               (1 << 8)
+
 extern const GUID IID_IChat;
 
 typedef struct _IChat       IChat;
@@ -67,7 +65,8 @@ struct _IChat
     Channel         channel;
     Channel         *channels;
     char            motd[4096];
-    int             s;
+    int             creating_channel;
+    irc_session     *irc;
 };
 
 struct _IChatVtbl

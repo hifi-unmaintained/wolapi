@@ -72,7 +72,7 @@ static HRESULT __stdcall INetUtil_RequestLadderSearch(INetUtil *this, LPSTR host
 static HRESULT __stdcall INetUtil_RequestLadderList(INetUtil *this, LPSTR host, int port, LPSTR keys, unsigned long SKU, int team, int cond, int sort)
 {
     dprintf("INetUtil::RequestLadderList(this=%p, host=\"%s\", port=%d, keys=\"%s\", SKU=%d, team=%d, cond=%d, sort=%d)\n", this, host, port, keys, SKU, team, cond, sort);
-    return S_OK;
+    return S_FALSE;
 }
 
 static HRESULT __stdcall INetUtil_RequestPing(INetUtil *this, LPSTR host, int timeout, int* handle)

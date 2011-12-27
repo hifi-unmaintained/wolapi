@@ -24,307 +24,6 @@ const GUID IID_IChatEvent         = {0x4DD3BAF6,0x7579,0x11D1,{0xB1,0xC6,0x00,0x
 
 IChat *IChatSingleton = NULL;
 
-void user_list_add(User **list, User *user)
-{
-    User *current = *list;
-
-    if (*list == NULL)
-    {
-        *list = user;
-        return;
-    }
-
-    while (current->next)
-    {
-        current = current->next;
-    }
-
-    current->next = user;
-}
-
-void user_list_free(User **list)
-{
-    User *current = *list;
-    while (current)
-    {
-        User *tmp = current;
-        current = current->next;
-        HeapFree(GetProcessHeap(), 0, tmp);
-    }
-    *list = NULL;
-}
-
-void channel_list_add(Channel **list, Channel *channel)
-{
-    Channel *current = *list;
-
-    if (*list == NULL)
-    {
-        *list = channel;
-        return;
-    }
-
-    while (current->next)
-    {
-        current = current->next;
-    }
-
-    current->next = channel;
-}
-
-void channel_list_free(Channel **list)
-{
-    Channel *current = *list;
-    while (current)
-    {
-        Channel *tmp = current;
-        current = current->next;
-        HeapFree(GetProcessHeap(), 0, tmp);
-    }
-    *list = NULL;
-}
-
-void irc_split_origin(const char *in, char *nick, char *host)
-{
-    int i,dpos = 0;
-    char *dst = nick;
-    printf("irc_split_origin(\"%s\", \"%s\", \"%s\"\n", in, nick, host);
-    for (i = 0; i < strlen(in); i++)
-    {
-        if (in[i] == '!')
-        {
-            dst = host;
-            dpos = 0;
-        }
-        else if (dst)
-        {
-            dst[dpos++] = in[i];
-        }
-    }
-}
-
-void irc_printf(IChat *this, const char *fmt, ...)
-{
-    va_list args;
-    char buf[512];
-
-    va_start(args, fmt);
-    vsprintf(buf, fmt, args);
-    va_end(args);
-
-    printf("-> %s\n", buf);
-
-    strncat(buf, "\r\n", sizeof(buf));
-    send(this->s, buf, strlen(buf), 0);
-}
-
-void irc_process_line(IChat *this, const char *line)
-{
-    char origin[128];
-    char cmd[32];
-    char target[128];
-    char params[512];
-
-    memset(origin, 0, sizeof(origin));
-    memset(cmd, 0, sizeof(cmd));
-    memset(target, 0, sizeof(target));
-    memset(params, 0, sizeof(params));
-
-    if (sscanf(line, ":%127s %31s %127s %511c", origin, cmd, target, params) == 4
-        || sscanf(line, ":%127s %31s %511c", origin, cmd, params) == 3
-        || sscanf(line, "%31s :%511c", cmd, params) == 2)
-    {
-        int icmd = atoi(cmd);
-
-        if (icmd == WOL_RPL_ENDOFMOTD)
-        {
-            dprintf("IChatEvent_OnConnection(%p, ...)\n", this->ev);
-            IChatEvent_OnConnection(this->ev, S_OK, "Connected.");
-        }
-        else if (icmd == WOL_RPL_LISTSTART)
-        {
-            channel_list_free(&this->channels);
-        }
-        else if (icmd == WOL_RPL_LIST)
-        {
-            Channel *channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
-            if (sscanf(params, "#%s %*d %*d %*d", channel->name))
-            {
-                channel_list_add(&this->channels, channel);
-            }
-            else
-            {
-                HeapFree(GetProcessHeap(), 0, channel);
-            }
-        }
-        else if (icmd == WOL_RPL_LISTGAME)
-        {
-            printf("WOL_RPL_LISTGAME: %s\n", params);
-            Channel *channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
-            if (sscanf(params, "#%s %u %u %d %u %lu %*u %*d::%80c", channel->name, &channel->currentUsers, &channel->maxUsers, &channel->type, &channel->tournament, &channel->reserved, channel->topic))
-            {
-                channel_list_add(&this->channels, channel);
-            }
-            else
-            {
-                HeapFree(GetProcessHeap(), 0, channel);
-            }
-        }
-        else if (icmd == WOL_RPL_LISTEND)
-        {
-            IChatEvent_OnChannelList(this->ev, S_OK, this->channels);
-        }
-        else if (icmd == WOL_RPL_TOPIC)
-        {
-            /* ignore TOPIC */
-        }
-        else if (icmd == WOL_RPL_NAMREPLY)
-        {
-            char buf[512];
-            memset(buf, 0, sizeof(buf));
-            if (sscanf(params, "%*c #%*s :%511c", buf) == 1)
-            {
-                char *p = strtok(buf, " ");
-                while (p)
-                {
-                    char name[16];
-                    memset(name, 0, sizeof(name));
-
-                    User *user = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(User));
-                    if (sscanf(p, "%15[^,],%*u,%*u", name))
-                    {
-                        if (name[0] == '@')
-                        {
-                            strncpy(user->name, name+1, 10);
-                            /* FIXME: user correct flag */
-                            user->flags = 0xFFFFFFFF;
-                        }
-                        else
-                            strncpy(user->name, name, 10);
-
-                        user_list_add(&this->users, user);
-                    }
-                    else
-                    {
-                        HeapFree(GetProcessHeap(), 0, user);
-                    }
-                    p = strtok(NULL, " ");
-                }
-            }
-        }
-        else if (icmd == WOL_RPL_ENDOFNAMES)
-        {
-            IChatEvent_OnUserList(this->ev, S_OK, &this->channel, this->users);
-            user_list_free(&this->users);
-        }
-        else if (strcmp(cmd, "JOINGAME") == 0)
-        {
-            this->channel.minUsers = atoi(target);
-            if (sscanf(params, "%u %d %*d %*d %*d %u :#%16s", &this->channel.maxUsers, &this->channel.type, &this->channel.tournament, this->channel.name))
-            {
-                IChatEvent_OnChannelJoin(this->ev, S_OK, &this->channel, &this->user);
-                IChatEvent_OnChannelCreate(this->ev, S_OK, &this->channel);
-            }
-        }
-        else if (strcmp(cmd, "PART") == 0)
-        {
-            Channel channel;
-            User user;
-
-            memset(&channel, 0, sizeof(Channel));
-            memset(&user, 0, sizeof(User));
-
-            strcpy(channel.name, params+1);
-            irc_split_origin(origin, user.name, NULL);
-
-            /* FIXME: use correct self flags */
-            if (strcmp(user.name, this->user.name) == 0)
-            {
-                user.flags = 0xFFFFFFFF;
-            }
-
-            IChatEvent_OnChannelLeave(this->ev, S_OK, &channel, &user);
-        }
-        else if (strcmp(cmd, "JOIN") == 0)
-        {
-            Channel channel;
-            User user;
-
-            memset(&channel, 0, sizeof(Channel));
-            memset(&user, 0, sizeof(User));
-
-            strcpy(channel.name, params+1);
-            irc_split_origin(origin, user.name, NULL);
-
-            strcpy(this->channel.name, channel.name);
-
-            /* FIXME: use correct self flags */
-            if (strcmp(user.name, this->user.name) == 0)
-            {
-                user.flags = 0xFFFFFFFF;
-            }
-
-            printf("%s joined %s\n", user.name, channel.name);
-
-            IChatEvent_OnChannelJoin(this->ev, S_OK, &channel, &user);
-        }
-        else if (strcmp(cmd, "PING") == 0)
-        {
-            irc_printf(this, "PONG :%s", params);
-        }
-        else if (strcmp(cmd, "GAMEOPT") == 0)
-        {
-            User user;
-            memset(&user, 0, sizeof(User));
-
-            printf("GAMEOPT from %s to %s: %s\n", origin, target, params);
-
-            if (target[0] == '#')
-            {
-                Channel channel;
-                memset(&channel, 0, sizeof(Channel));
-                strcpy(channel.name, target+1);
-                IChatEvent_OnPublicGameOptions(this->ev, S_OK, &channel, &user, params+1);
-            }
-            else
-            {
-                IChatEvent_OnPrivateGameOptions(this->ev, S_OK, &user, params+1);
-            }
-        }
-        else
-        {
-            dprintf("IRC: Unhandled cmd \"%s\" from \"%s\" to \"%s\" with params \"%s\"\n", cmd, origin, target, params);
-        }
-    }
-    else
-    {
-        dprintf("IRC: Failed to process line: %s\n", line);
-    }
-}
-
-void irc_process_input(IChat *this, const char *buf)
-{
-    static char tbuf[1024] = { 0 };
-    int i,len;
-    char *ptr = tbuf;
-
-    strncat(tbuf, buf, sizeof(tbuf));
-    len = strlen(tbuf);
-
-    for (i = 0; i < len; i++)
-    {
-        if (tbuf[i] == '\n')
-        {
-            if (i > 0)
-                tbuf[i-1] = '\0'; /* be RFC compliant or gtfo */
-            irc_process_line(this, ptr);
-            ptr = tbuf+i+1;
-        }
-    }
-
-    strncpy(tbuf, ptr, sizeof(tbuf));
-}
-
 static HRESULT __stdcall IChat_QueryInterface(IChat *this, REFIID riid, void **ppvObject)
 {
     dprintf("IChat::QueryInterface(this=%p, riid={%s}, ppvObject=%p)\n", this, str_GUID(riid), ppvObject);
@@ -363,20 +62,8 @@ static HRESULT __stdcall IChat_PumpMessages(IChat *this)
 #ifdef _VERBOSE
     dprintf("IChat::PumpMessages(this=%p)\n", this);
 #endif
-    struct timeval tv = { 0, 0 };
-    fd_set in_set;
 
-    FD_ZERO(&in_set);
-
-    FD_SET(this->s, &in_set);
-
-    if (select(this->s + 1, &in_set, NULL, NULL, &tv) > 0)
-    {
-        char buf[512];
-        int len = recv(this->s, buf, sizeof(buf)-1, 0);
-        buf[len] = '\0';
-        irc_process_input(this, buf);
-    }
+    irc_pump(this->irc);
 
     return S_OK;
 }
@@ -418,36 +105,20 @@ static HRESULT __stdcall IChat_RequestConnection(IChat *this, Server* server, in
         return S_FALSE;
     }
 
-    struct sockaddr_in addr;
-    struct hostent *hent;
-    hent = gethostbyname(host);
-
-    if (!hent)
-    {
-        dprintf(" Error resolving server host\n");
-        return S_FALSE;
-    }
-
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = *(int *)hent->h_addr_list[0];
-    addr.sin_port = htons(port);
-
-    this->s = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (connect(this->s, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) != 0)
+    if (!irc_connect(this->irc, host, port))
     {
         dprintf(" Error connecting to server\n");
         return S_FALSE;
     }
 
-    irc_printf(this, "CVERS %d %d", 11020, 5376);
-    irc_printf(this, "PASS %s", "supersecret");
-    irc_printf(this, "NICK %s", server->login);
-    irc_printf(this, "apgar %s 0", "abcdefg");
-    irc_printf(this, "");
-    irc_printf(this, "SERIAL %s", "");
-    irc_printf(this, "USER UserName HostName irc.westwood.com :RealName");
-    irc_printf(this, "verchk %d %d", 32512, 270916);
+    irc_printf(this->irc, "CVERS %d %d", 11020, 5376);
+    irc_printf(this->irc, "PASS %s", "supersecret");
+    irc_printf(this->irc, "NICK %s", server->login);
+    irc_printf(this->irc, "apgar %s 0", "abcdefg");
+    irc_printf(this->irc, "");
+    irc_printf(this->irc, "SERIAL %s", "");
+    irc_printf(this->irc, "USER UserName HostName irc.westwood.com :RealName");
+    irc_printf(this->irc, "verchk %d %d", 32512, 270916);
 
     strcpy(this->user.name, server->login);
 
@@ -458,7 +129,7 @@ static HRESULT __stdcall IChat_RequestChannelList(IChat *this, int channelType, 
 {
     dprintf("IChat::RequestChannelList(this=%p, channelType=%d, autoping=%d)\n", this, channelType, autoping);
 
-    irc_printf(this, "LIST %d 21", channelType);
+    irc_printf(this->irc, "LIST %d 21", channelType);
 
     return S_OK;
 }
@@ -480,8 +151,10 @@ static HRESULT __stdcall IChat_RequestChannelCreate(IChat *this, Channel* channe
 
     memcpy(&this->channel, channel, sizeof(Channel));
 
-    irc_printf(this, "JOINGAME #%s %d %d %d %d %d %d %u %s",
-            channel->name, channel->minUsers, channel->maxUsers, channel->type, 0, 0, channel->tournament, channel->reserved, channel->key);
+    this->creating_channel = 1;
+
+    irc_printf(this->irc, "JOINGAME #%s %d %d %d %d %d %d %u %s",
+            channel->name, channel->minUsers, channel->maxUsers, channel->type, 3, 1, channel->tournament, channel->reserved, channel->key);
 
     return S_OK;
 }
@@ -490,7 +163,7 @@ static HRESULT __stdcall IChat_RequestChannelJoin(IChat *this, Channel* channel)
 {
     dprintf("IChat::RequestChannelJoin(this=%p, channel=%p)\n", this, channel);
 
-    irc_printf(this, "JOINGAME #%s 1 %s", channel->name, channel->key);
+    irc_printf(this->irc, "JOINGAME #%s 1 %s", channel->name, channel->key);
 
     return S_OK;
 }
@@ -499,7 +172,7 @@ static HRESULT __stdcall IChat_RequestChannelLeave(IChat *this)
 {
     dprintf("IChat::RequestChannelLeave(this=%p)\n", this);
 
-    irc_printf(this, "PART #%s", this->channel.name);
+    irc_printf(this->irc, "PART #%s", this->channel.name);
 
     return S_OK;
 }
@@ -514,7 +187,7 @@ static HRESULT __stdcall IChat_RequestPublicMessage(IChat *this, LPSTR message)
 {
     dprintf("IChat::RequestPublicMessage(this=%p, message=\"%s\")\n", this, message);
 
-    irc_printf(this, "PRIVMSG #%s :%s", this->channel.name, message);
+    irc_printf(this->irc, "PRIVMSG #%s :%s", this->channel.name, message);
 
     return S_OK;
 }
@@ -524,7 +197,7 @@ static HRESULT __stdcall IChat_RequestPrivateMessage(IChat *this, User* users, L
     dprintf("IChat::RequestPrivateMessage(this=%p, users=%p, message=\"%s\")\n", this, users, message);
 
     /* FIXME: handle multiple recipients */
-    irc_printf(this, "PRIVMSG %s :%s", users->name, message);
+    irc_printf(this->irc, "PRIVMSG %s :%s", users->name, message);
 
     return S_OK;
 }
@@ -533,16 +206,16 @@ static HRESULT __stdcall IChat_RequestLogout(IChat *this)
 {
     dprintf("IChat::RequestLogout(this=%p)\n", this);
 
-    irc_printf(this, "QUIT");
+    irc_printf(this->irc, "QUIT");
 
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestPrivateGameOptions(IChat *this, User* users, LPSTR options)
+static HRESULT __stdcall IChat_RequestPrivateGameOptions(IChat *this, User* user, LPSTR options)
 {
-    dprintf("IChat::RequestPrivateGameOptions(this=%p, user=%p, options=\"%s\")\n", this, users, options);
+    dprintf("IChat::RequestPrivateGameOptions(this=%p, user=%p, options=\"%s\")\n", this, user, options);
 
-    irc_printf(this, "GAMEOPT %s :%s", users->name, options);
+    irc_printf(this->irc, "GAMEOPT %s :%s", user->name, options);
 
     return S_OK;
 }
@@ -551,7 +224,7 @@ static HRESULT __stdcall IChat_RequestPublicGameOptions(IChat *this, LPSTR optio
 {
     dprintf("IChat::RequestPublicGameOptions(this=%p, options=\"%s\")\n", this, options);
 
-    irc_printf(this, "GAMEOPT #%s :%s", this->channel.name, options);
+    irc_printf(this->irc, "GAMEOPT #%s :%s", this->channel.name, options);
 
     return S_OK;
 }
@@ -571,13 +244,30 @@ static HRESULT __stdcall IChat_RequestPrivateAction(IChat *this, User* users, LP
 
 static HRESULT __stdcall IChat_RequestGameStart(IChat *this, User* users)
 {
-    dprintf("IChat::RequestGameStart(this=%p, ...)\n", this);
+    dprintf("IChat::RequestGameStart(this=%p, users=%p)\n", this, users);
+
+    User *user = users;
+    char buf[128] = { 0 };
+
+    while (user)
+    {
+        strcat(buf, user->name);
+        user = user->next;
+        if (user)
+            strcat(buf, ",");
+    }
+
+    irc_printf(this->irc, "STARTG #%s %s", this->channel.name, buf);
+
     return S_OK;
 }
 
 static HRESULT __stdcall IChat_RequestChannelTopic(IChat *this, LPSTR topic)
 {
-    dprintf("IChat::RequestChannelTopic(this=%p, ...)\n", this);
+    dprintf("IChat::RequestChannelTopic(this=%p, topic=\"%s\")\n", this);
+
+    irc_printf(this->irc, "TOPIC #%s :%s", this->channel.name, topic);
+
     return S_OK;
 }
 
@@ -595,8 +285,11 @@ static HRESULT __stdcall IChat_RequestUserKick(IChat *this, User* User)
 
 static HRESULT __stdcall IChat_RequestUserIP(IChat *this, User* user)
 {
-    dprintf("IChat::RequestUserIp(this=%p, user=%p)\n", this, user);
+    dprintf("IChat::RequestUserIP(this=%p, user=%p)\n", this, user);
     dprintf(" name: %s\n", user->name);
+
+    irc_printf(this->irc, "USERIP %s", user->name);
+
     return S_OK;
 }
 
@@ -795,6 +488,319 @@ static IChatVtbl Vtbl =
     IChat_RequestSquadInfo
 };
 
+void hook_connect(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    dprintf("IChatEvent_OnConnection(%p, ...)\n", this->ev);
+    IChatEvent_OnConnection(this->ev, S_OK, "Connected.");
+}
+
+void hook_liststart(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    channel_list_free(&this->channels);
+}
+
+void hook_list(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    if (argc > 2 && argv[1][0] == '#')
+    {
+        Channel *channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
+        strcpy(channel->name, argv[1] + 1);
+        channel->currentUsers = atoi(argv[2]);
+        channel_list_add(&this->channels, channel);
+    }
+}
+
+void hook_listgame(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    if (argc < 9)
+        return;
+
+    Channel *channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
+
+    strcpy(channel->name, argv[1]+1);
+    channel->currentUsers = atoi(argv[2]);
+    channel->maxUsers = atoi(argv[3]);
+    channel->type = atoi(argv[4]);
+    channel->tournament = atoi(argv[5]);
+    channel->reserved = atoi(argv[6]);
+    channel->ipaddr = atol(argv[7]);
+
+    sscanf(argv[8], "%u::%s", &channel->flags, channel->topic);
+
+    channel_list_add(&this->channels, channel);
+}
+
+void hook_listend(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    IChatEvent_OnChannelList(this->ev, S_OK, this->channels);
+}
+
+void hook_join(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    Channel channel;
+    User user;
+
+    memset(&channel, 0, sizeof(Channel));
+    memset(&user, 0, sizeof(User));
+
+    irc_parse_prefix(prefix, user.name, NULL);
+
+    if (argc > 0)
+    {
+        if (sscanf(argv[0], "%*f,%*f #%s", channel.name))
+        {
+            /* check if we joined */
+            if (strcmp(user.name, this->user.name) == 0)
+            {
+                user.flags = CHAT_USER_MYSELF;
+                strcpy(this->channel.name, channel.name);
+            }
+
+            IChatEvent_OnChannelJoin(this->ev, S_OK, &channel, &user);
+        }
+    }
+}
+
+void hook_part(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    Channel channel;
+    User user;
+
+    memset(&channel, 0, sizeof(Channel));
+    memset(&user, 0, sizeof(User));
+
+    if (argc > 0)
+    {
+        strcpy(channel.name, argv[0]+1);
+        irc_parse_prefix(prefix, user.name, NULL);
+
+        strcpy(this->channel.name, channel.name);
+
+        if (strcmp(user.name, this->user.name) == 0)
+        {
+            user.flags = CHAT_USER_MYSELF;
+        }
+
+        IChatEvent_OnChannelLeave(this->ev, S_OK, &channel, &user);
+    }
+}
+
+void hook_ping(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    if (argc > 0)
+    {
+        irc_printf(this->irc, "PONG :%s", argv[0]);
+    }
+}
+
+void hook_userip(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    /* currently as of 2011-12-27 PvPGN is faulty and returns only the ip, not the user */
+    if (argc < 2)
+        return;
+
+    User user;
+    memset(&user, 0, sizeof(User));
+    strcpy(user.name, argv[0]);
+    user.ipaddr = atoi(argv[1]);
+
+    //IChatEvent_OnUserIP(this->ev, S_OK, &user);
+}
+
+void hook_gameopt(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    User user;
+    memset(&user, 0, sizeof(User));
+
+    if (argc < 2)
+        return;
+
+    irc_parse_prefix(prefix, user.name, NULL);
+
+    if (argv[0][0] == '#')
+    {
+        Channel channel;
+        memset(&channel, 0, sizeof(Channel));
+        strcpy(channel.name, argv[0]+1);
+        dprintf("public options from %s to %s: %s\n", user.name, channel.name, argv[1]);
+        IChatEvent_OnPublicGameOptions(this->ev, S_OK, &channel, &user, (char *)argv[1]);
+    }
+    else
+    {
+        dprintf("private options from %s to %s: %s\n", user.name, argv[0], argv[1]);
+        IChatEvent_OnPrivateGameOptions(this->ev, S_OK, &user, (char *)argv[1]);
+    }
+}
+
+void hook_joingame(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    User user;
+    memset(&user, 0, sizeof(User));
+
+    if (argc < 8)
+        return;
+
+    irc_parse_prefix(prefix, user.name, NULL);
+
+    if (strcmp(user.name, this->user.name) == 0)
+    {
+        user.flags = CHAT_USER_MYSELF;
+
+        this->channel.minUsers = atoi(argv[0]);
+        this->channel.maxUsers = atoi(argv[1]);
+        this->channel.type = atoi(argv[2]);
+        this->channel.tournament = atoi(argv[3]);
+        this->channel.ipaddr = atol(argv[5]);
+        strcpy(this->channel.name, argv[7]+1);
+    }
+
+    if (this->creating_channel)
+    {
+        IChatEvent_OnChannelCreate(this->ev, S_OK, &this->channel);
+    }
+    else
+    {
+        IChatEvent_OnChannelJoin(this->ev, S_OK, &this->channel, &user);
+    }
+
+    this->creating_channel = 0;
+}
+
+void hook_namreply(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    if (argc > 3)
+    {
+        char *names = wol_strdup(argv[3]);
+        char *ptr = strtok(names, " ");
+
+        do
+        {
+            char name[16];
+            unsigned int ipaddr;
+
+            if (sscanf(ptr, "%15[^,],%*u,%u", name, &ipaddr))
+            {
+                User *user = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(User));
+
+                if (name[0] == '@')
+                {
+                    strncpy(user->name, name+1, 10);
+                    user->flags = CHAT_USER_CHANNELOWNER;
+                }
+                else
+                    strncpy(user->name, name, 10);
+
+                if (strcmp(user->name, this->user.name) == 0)
+                {
+                    user->flags |= CHAT_USER_MYSELF;
+                }
+
+                user->ipaddr = ipaddr;
+
+                user_list_add(&this->users, user);
+            }
+
+            ptr = strtok(NULL, " ");
+        } while(ptr);
+
+        free(names);
+    }
+}
+
+void hook_endofnames(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    IChatEvent_OnUserList(this->ev, S_OK, &this->channel, this->users);
+    user_list_free(&this->users);
+}
+
+void hook_notopic(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    if (argc < 2)
+        return;
+
+    IChatEvent_OnChannelTopic(this->ev, S_OK, &this->channel, "");
+}
+
+void hook_topic(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    if (argc < 2)
+        return;
+
+    IChatEvent_OnChannelTopic(this->ev, S_OK, &this->channel, (char *)argv[1]);
+}
+
+void hook_startg(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    int i,gameid,now;
+
+    char buf[512];
+    char users[512];
+
+    User *list = NULL;
+    User *user = NULL;
+
+    if (argc < 2)
+        return;
+
+    strcpy(buf, argv[1]);
+
+    memset(users, 0, sizeof(users));
+
+    if (sscanf(buf, "%511[^:]:%d %d", users, &gameid, &now) < 3)
+        return;
+
+    dprintf("gameid: %d, now: %d, users: \"%s\"\n", gameid, now, users);
+
+    char *p = strtok(users, " ");
+    i = 0;
+    do {
+        if (strlen(p) < 2)
+            break;
+
+        if (i % 2 == 0)
+        {
+            user = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(User));
+            user_list_add(&list, user);
+            strcpy(user->name, p);
+            dprintf("new user name: \"%s\"\n", p);
+            if (strcmp(user->name, this->user.name) == 0)
+            {
+                dprintf("setting self flag\n");
+                user->flags |= CHAT_USER_MYSELF;
+            }
+            else
+            {
+                user->flags |= CHAT_USER_CHANNELOWNER;
+            }
+        }
+        else
+        {
+            user->ipaddr = inet_addr(p);
+            dprintf("and his ip: \"%s\" (%ul)\n", p, inet_addr(p));
+        }
+
+        p = strtok(NULL, " ");
+        i++;
+    } while(p);
+
+    dprintf("calling ongamestart\n");
+
+    printf("list: %p, first: %s, second: %s, third: %p\n", list, list->name, list->next->name, list->next->next);
+
+    IChatEvent_OnGameStart(this->ev, S_OK, &this->channel, list, gameid);
+
+    user_list_free(&list);
+}
+
+void hook_debug(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    int i;
+    dprintf("IRC <- %s, %s", prefix, command);
+    for (i = 0; i < argc; i++)
+        dprintf(", \"%s\"", argv[i]);
+    dprintf("\n");
+}
+
 IChat *IChat_New()
 {
     dprintf("IChat::New()\n");
@@ -807,7 +813,26 @@ IChat *IChat_New()
     IChat_AddRef(this);
 
     /* set self flag, don't know the correct value yet */
-    this->user.flags = 0xFFFFFFF;
+    this->user.flags = CHAT_USER_MYSELF;
+    this->irc = irc_create((void *)this);
+
+    irc_hook_add(this->irc, "*", (irc_callback)hook_debug);
+    irc_hook_add(this->irc, WOL_RPL_ENDOFMOTD, (irc_callback)hook_connect);
+    irc_hook_add(this->irc, WOL_RPL_LISTSTART, (irc_callback)hook_liststart);
+    irc_hook_add(this->irc, WOL_RPL_LISTGAME, (irc_callback)hook_listgame);
+    irc_hook_add(this->irc, WOL_RPL_LIST, (irc_callback)hook_list);
+    irc_hook_add(this->irc, WOL_RPL_LISTEND, (irc_callback)hook_listend);
+    irc_hook_add(this->irc, WOL_RPL_NAMREPLY, (irc_callback)hook_namreply);
+    irc_hook_add(this->irc, WOL_RPL_ENDOFNAMES, (irc_callback)hook_endofnames);
+    irc_hook_add(this->irc, WOL_RPL_NOTOPIC, (irc_callback)hook_notopic);
+    irc_hook_add(this->irc, WOL_RPL_TOPIC, (irc_callback)hook_topic);
+    irc_hook_add(this->irc, "PING", (irc_callback)hook_ping);
+    irc_hook_add(this->irc, "JOIN", (irc_callback)hook_join);
+    irc_hook_add(this->irc, "JOINGAME", (irc_callback)hook_joingame);
+    irc_hook_add(this->irc, "PART", (irc_callback)hook_part);
+    irc_hook_add(this->irc, "USERIP", (irc_callback)hook_userip);
+    irc_hook_add(this->irc, "GAMEOPT", (irc_callback)hook_gameopt);
+    irc_hook_add(this->irc, "STARTG", (irc_callback)hook_startg);
 
     /* to get our callback ev pointer */
     IChatSingleton = this;

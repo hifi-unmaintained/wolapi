@@ -47,6 +47,75 @@ const char *str_GUID(REFGUID riid)
     return (const char*)buf;
 }
 
+void user_list_add(User **list, User *user)
+{
+    User *current = *list;
+
+    if (*list == NULL)
+    {
+        *list = user;
+        return;
+    }
+
+    while (current->next)
+    {
+        current = current->next;
+    }
+
+    current->next = user;
+}
+
+void user_list_free(User **list)
+{
+    User *current = *list;
+    while (current)
+    {
+        User *tmp = current;
+        current = current->next;
+        HeapFree(GetProcessHeap(), 0, tmp);
+    }
+    *list = NULL;
+}
+
+void channel_list_add(Channel **list, Channel *channel)
+{
+    Channel *current = *list;
+
+    if (*list == NULL)
+    {
+        *list = channel;
+        return;
+    }
+
+    while (current->next)
+    {
+        current = current->next;
+    }
+
+    current->next = channel;
+}
+
+void channel_list_free(Channel **list)
+{
+    Channel *current = *list;
+    while (current)
+    {
+        Channel *tmp = current;
+        current = current->next;
+        HeapFree(GetProcessHeap(), 0, tmp);
+    }
+    *list = NULL;
+}
+
+char *wol_strdup(const char *in)
+{
+    int len = strlen(in);
+    char *out = malloc(len+1);
+    memcpy(out, in, len);
+    out[len] = '\0';
+    return out;
+}
+
 HRESULT __stdcall DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 {
     dprintf("DllGetClassObject(irclsid={%s}, riid=%p, ppv=%p)\n", str_GUID(rclsid), riid, ppv);

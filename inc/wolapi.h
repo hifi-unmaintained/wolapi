@@ -17,6 +17,7 @@
 #include <windows.h>
 #include <objbase.h>
 #include <ocidl.h>
+#include <string.h>
 
 #ifdef _DEBUG
     #include <stdio.h>
@@ -140,6 +141,15 @@ struct _Ladder
     char            login_name[40];
 };
 
+char *wol_strdup(const char *in);
+
+/* linked list handlers, could use a define macro wrapper */
+void user_list_add(User **list, User *user);
+void user_list_free(User **list);
+void channel_list_add(Channel **list, Channel *channel);
+void channel_list_free(Channel **list);
+
+#include "irc.h"
 #include "IRTPatcherEvent.h"
 #include "IRTPatcher.h"
 #include "IDownloadEvent.h"

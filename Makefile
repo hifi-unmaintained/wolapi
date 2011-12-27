@@ -2,7 +2,7 @@ CC=i586-mingw32msvc-gcc
 CFLAGS=-pedantic -std=c99 -Wall -Werror -O2 -I./inc/ -D_DEBUG
 LDFLAGS=-Wl,--enable-stdcall-fixup
 LIBS=-luuid -lws2_32
-OBJS=src/wolapi.o src/Chat.o src/IChat.o src/NetUtil.o src/INetUtil.o src/IConnectionPointContainer.o src/IWOLConnectionPoint.o
+OBJS=src/wolapi.o src/Chat.o src/IChat.o src/NetUtil.o src/INetUtil.o src/IConnectionPointContainer.o src/IWOLConnectionPoint.o src/irc.o
 
 all: wolapi.dll
 
