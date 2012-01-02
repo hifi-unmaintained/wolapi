@@ -76,8 +76,7 @@ typedef struct Channel
     char            exInfo[41];
 } Channel;
 
-typedef struct _User User;
-struct _User
+typedef struct User
 {
     unsigned int    flags;
     int             group;
@@ -87,10 +86,10 @@ struct _User
     unsigned long   squadID;
     unsigned long   ipaddr;
     unsigned long   squad_icon;
-    User*           next;
+    struct User*    next;
     char            name[10];
     char            squadname[41];
-};
+} User;
 
 typedef struct Update
 {
