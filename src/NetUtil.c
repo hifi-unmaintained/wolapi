@@ -19,25 +19,25 @@
 /* {B832B0AB-A7D3-11D1-97C3-00609706FA0C} */
 const GUID CLSID_NetUtil          = {0xB832B0AB,0xA7D3,0x11D1,{0x97,0xC3,0x00,0x60,0x97,0x06,0xFA,0x0C}};
 
-static HRESULT __stdcall NetUtil_QueryInterface(NetUtil *this, REFIID riid, void **obj)
+static HRESULT __stdcall _QueryInterface(NetUtil *this, REFIID riid, void **obj)
 {
     dprintf("NetUtil::QueryInterface(this=%p, riid=%p, obj=%p)\n", this, riid, obj);
     return S_OK;
 }
 
-static ULONG __stdcall NetUtil_AddRef(NetUtil *this)
+static ULONG __stdcall _AddRef(NetUtil *this)
 {
     dprintf("NetUtil::AddRef(this=%p)\n", this);
     return ++this->ref;
 }
 
-static ULONG __stdcall NetUtil_Release(NetUtil *this)
+static ULONG __stdcall _Release(NetUtil *this)
 {
     dprintf("NetUtil::Release(this=%p)\n", this);
     return --this->ref;
 }
 
-static HRESULT __stdcall NetUtil_CreateInstance(NetUtil *this, IUnknown *pUnkOuter, REFIID riid, void **ppvObject)
+static HRESULT __stdcall _CreateInstance(NetUtil *this, IUnknown *pUnkOuter, REFIID riid, void **ppvObject)
 {
     dprintf("NetUtil::CreateInstance(this=%p, pUnkOuter=%p, riid={%s}, ppvObject=%p)\n", this, pUnkOuter, str_GUID(riid), ppvObject);
 
@@ -48,19 +48,10 @@ static HRESULT __stdcall NetUtil_CreateInstance(NetUtil *this, IUnknown *pUnkOut
         return S_OK;
     }
 
-    if (IsEqualIID(riid, &IID_INetUtilEvent))
-    {
-        dprintf(" INetUtilEvent interface requested\n");
-        /*
-        *ppvObject = INetUtilEvent_New();
-        return S_OK;
-        */
-    }
-
     return E_NOINTERFACE;
 }
 
-static HRESULT __stdcall NetUtil_LockServer(NetUtil *this, BOOL fLock)
+static HRESULT __stdcall _LockServer(NetUtil *this, BOOL fLock)
 {
     dprintf("NetUtil::LockServer(this=%p, fLock=%s)\n", this, fLock ? "true" : "false");
     return S_OK;
@@ -69,21 +60,20 @@ static HRESULT __stdcall NetUtil_LockServer(NetUtil *this, BOOL fLock)
 static NetUtilVtbl Vtbl =
 {
     /* IUnknown */
-    NetUtil_QueryInterface,
-    NetUtil_AddRef,
-    NetUtil_Release,
+    _QueryInterface,
+    _AddRef,
+    _Release,
 
     /* IClassFactory */
-    NetUtil_CreateInstance,
-    NetUtil_LockServer
+    _CreateInstance,
+    _LockServer
 };
 
 NetUtil* NetUtil_New()
 {
-    dprintf("NetUtil::New()\n");
-
     NetUtil *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(NetUtil));
     this->lpVtbl = &Vtbl;
-    NetUtil_AddRef(this);
+    dprintf("NetUtil::New()\n");
+    _AddRef(this);
     return this;
 }

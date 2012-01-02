@@ -18,9 +18,9 @@
 
 irc_event *irc_hook_add(irc_session *this, const char *command, irc_callback func)
 {
-    dprintf("irc_hook_add(this=%p, command=\"%s\", func=%p)\n", this, command, func);
-
     irc_event **ev = &this->events;
+
+    dprintf("irc_hook_add(this=%p, command=\"%s\", func=%p)\n", this, command, func);
 
     while (*ev)
     {
@@ -39,10 +39,10 @@ irc_event *irc_hook_add(irc_session *this, const char *command, irc_callback fun
 
 int irc_hook_remove(irc_session *this, irc_event *hook)
 {
-    dprintf("irc_hook_remove(this=%p, hook=%p)\n", this, hook);
-
     irc_event **ev = &this->events;
     irc_event **prev = NULL;
+
+    dprintf("irc_hook_remove(this=%p, hook=%p)\n", this, hook);
 
     while (*ev)
     {
@@ -204,10 +204,10 @@ void irc_pump(irc_session *this)
 
 irc_session *irc_create(void *ctx)
 {
+    irc_session *this = calloc(1, sizeof(irc_session));
     WSADATA wsaData;
     WSAStartup(MAKEWORD(1, 1), &wsaData);
 
-    irc_session *this = calloc(1, sizeof(irc_session));
     this->s = socket(AF_INET, SOCK_STREAM, 0);
     this->ctx = ctx;
     return this;
@@ -215,10 +215,10 @@ irc_session *irc_create(void *ctx)
 
 int irc_connect(irc_session *this, const char *host, int port)
 {
-    dprintf("irc_connect(host=\"%s\", port=%d)\n", host, port);
-
     struct sockaddr_in addr;
     struct hostent *hent = gethostbyname(host);
+
+    dprintf("irc_connect(host=\"%s\", port=%d)\n", host, port);
 
     if (!hent)
     {

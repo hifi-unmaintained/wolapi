@@ -24,7 +24,7 @@ const GUID IID_IChatEvent         = {0x4DD3BAF6,0x7579,0x11D1,{0xB1,0xC6,0x00,0x
 
 IChat *IChatSingleton = NULL;
 
-static HRESULT __stdcall IChat_QueryInterface(IChat *this, REFIID riid, void **ppvObject)
+static HRESULT __stdcall _QueryInterface(IChat *this, REFIID riid, void **ppvObject)
 {
     dprintf("IChat::QueryInterface(this=%p, riid={%s}, ppvObject=%p)\n", this, str_GUID(riid), ppvObject);
 
@@ -45,19 +45,19 @@ static HRESULT __stdcall IChat_QueryInterface(IChat *this, REFIID riid, void **p
     return E_NOINTERFACE;
 }
 
-static ULONG __stdcall IChat_AddRef(IChat *this)
+static ULONG __stdcall _AddRef(IChat *this)
 {
     dprintf("IChat::AddRef(this=%p)\n", this);
     return ++this->ref;
 }
 
-static ULONG __stdcall IChat_Release(IChat *this)
+static ULONG __stdcall _Release(IChat *this)
 {
     dprintf("IChat::Release(this=%p)\n", this);
     return --this->ref;
 }
 
-static HRESULT __stdcall IChat_PumpMessages(IChat *this)
+static HRESULT __stdcall _PumpMessages(IChat *this)
 {
 #ifdef _VERBOSE
     dprintf("IChat::PumpMessages(this=%p)\n", this);
@@ -68,25 +68,47 @@ static HRESULT __stdcall IChat_PumpMessages(IChat *this)
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestServerList(IChat *this, unsigned long SKU, unsigned long current_version, LPSTR loginname, LPSTR password, int timeout)
+static HRESULT __stdcall _RequestServerList(IChat *this, unsigned long SKU, unsigned long current_version, LPSTR loginname, LPSTR password, int timeout)
 {
+    Server irc;
+    Server lad;
+    Server gam;
+
     dprintf("IChat::RequestServerList(this=%p, SKU=%08X, current_version=%08X, loginname=\"%s\", password=\"%s\", timeout=%d)\n", this, SKU, current_version, loginname, password, timeout);
 
-    Server srv;
-    memset(&srv, 0, sizeof(Server));
-    srv.gametype = SKU;
-    strcpy(srv.name, "WOLAPI stub");
-    strcpy(srv.connlabel, "IRC");
-    strcpy(srv.conndata, "TCP:localhost:4000");
-    IChatEvent_OnServerList(this->ev, S_OK, &srv);
+    memset(&irc, 0, sizeof(Server));
+    irc.gametype = SKU;
+    strcpy(irc.name, "Live chat server");
+    strcpy(irc.connlabel, "IRC");
+    strcpy(irc.conndata, "TCP;192.168.1.2;4000");
+
+    memset(&lad, 0, sizeof(Server));
+    lad.gametype = SKU;
+    strcpy(lad.name, "Ladder server");
+    strcpy(lad.connlabel, "LAD");
+    strcpy(lad.conndata, "TCP;unused;-1");
+
+    memset(&gam, 0, sizeof(Server));
+    gam.gametype = SKU;
+    strcpy(gam.name, "Gameres server");
+    strcpy(gam.connlabel, "GAM");
+    strcpy(gam.conndata, "TCP;unused;-1");
+
+    irc.next = &lad;
+    lad.next = &gam;
 
     this->SKU = SKU; /* for debugging only */
+
+    IChatEvent_OnServerList(this->ev, S_OK, &irc);
 
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestConnection(IChat *this, Server* server, int timeout, int domangle)
+static HRESULT __stdcall _RequestConnection(IChat *this, Server* server, int timeout, int domangle)
 {
+    char host[128];
+    int port;
+
     dprintf("IChat::RequestConnection(this=%p, server=%p, timeout=%d, domangle=%d)\n", this, server, timeout, domangle);
 
     dprintf("    name     : %s\n", server->name);
@@ -95,11 +117,9 @@ static HRESULT __stdcall IChat_RequestConnection(IChat *this, Server* server, in
     dprintf("    login    : %s\n", server->login);
     dprintf("    password : %s\n", server->password);
 
-    char host[128];
-    int port;
     memset(host, 0, sizeof(host));
 
-    if (sscanf(server->conndata, "TCP:%127[^:]:%d", host, &port) != 2)
+    if (sscanf(server->conndata, "TCP;%127[^;];%d", host, &port) != 2)
     {
         dprintf(" Error parsing connection data\n");
         return S_FALSE;
@@ -110,6 +130,8 @@ static HRESULT __stdcall IChat_RequestConnection(IChat *this, Server* server, in
         dprintf(" Error connecting to server\n");
         return S_FALSE;
     }
+
+    IChatEvent_OnNetStatus(this->ev, CHAT_S_CON_CONNECTED);
 
     irc_printf(this->irc, "CVERS %d %d", 11020, 5376);
     irc_printf(this->irc, "PASS %s", "supersecret");
@@ -125,7 +147,7 @@ static HRESULT __stdcall IChat_RequestConnection(IChat *this, Server* server, in
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestChannelList(IChat *this, int channelType, int autoping)
+static HRESULT __stdcall _RequestChannelList(IChat *this, int channelType, int autoping)
 {
     dprintf("IChat::RequestChannelList(this=%p, channelType=%d, autoping=%d)\n", this, channelType, autoping);
 
@@ -134,24 +156,31 @@ static HRESULT __stdcall IChat_RequestChannelList(IChat *this, int channelType, 
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestChannelCreate(IChat *this, Channel* channel)
+static HRESULT __stdcall _RequestChannelCreate(IChat *this, Channel* channel)
 {
     dprintf("IChat::RequestChannelCreate(this=%p, channel=%p)\n", this, channel);
 
-    dprintf("    type      : %d\n", channel->type);
-    dprintf("    minUsers  : %d\n", channel->minUsers);
-    dprintf("    maxUsers  : %d\n", channel->maxUsers);
-    dprintf("    tournament: %d\n", channel->tournament);
-    dprintf("    flags     : %08X\n", channel->flags);
-    dprintf("    reserved  : %08X\n", channel->reserved);
-    dprintf("    name      : %s\n", channel->name);
-    dprintf("    topic     : %s\n", channel->topic);
-    dprintf("    key       : %s\n", channel->key);
-    dprintf("    exInfo    : %s\n", channel->exInfo);
+    dprintf(" Dumping channel %p\n", channel);
+    dprintf("    type        : %d\n", channel->type);
+    dprintf("    minUsers    : %d\n", channel->minUsers);
+    dprintf("    maxUsers    : %d\n", channel->maxUsers);
+    dprintf("    currentUsers: %d\n", channel->currentUsers);
+    dprintf("    official    : %d\n", channel->official);
+    dprintf("    tournament  : %d\n", channel->tournament);
+    dprintf("    ingame      : %d\n", channel->ingame);
+    dprintf("    flags       : %08X\n", channel->flags);
+    dprintf("    reserved    : %08X\n", channel->reserved);
+    dprintf("    ipaddr      : %u\n", channel->ipaddr);
+    dprintf("    latency     : %d\n", channel->latency);
+    dprintf("    hidden      : %d\n", channel->hidden);
+    dprintf("    next        : %p\n", channel->next);
+    dprintf("    name        : \"%s\"\n", channel->name);
+    dprintf("    topic       : \"%s\"\n", channel->topic);
+    dprintf("    location    : \"%s\"\n", channel->location);
+    dprintf("    key         : \"%s\"\n", channel->key);
+    dprintf("    exInfo      : \"%s\"\n", channel->exInfo);
 
     memcpy(&this->channel, channel, sizeof(Channel));
-
-    this->creating_channel = 1;
 
     irc_printf(this->irc, "JOINGAME #%s %d %d %d %d %d %d %u %s",
             channel->name, channel->minUsers, channel->maxUsers, channel->type, 3, 1, channel->tournament, channel->reserved, channel->key);
@@ -159,16 +188,23 @@ static HRESULT __stdcall IChat_RequestChannelCreate(IChat *this, Channel* channe
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestChannelJoin(IChat *this, Channel* channel)
+static HRESULT __stdcall _RequestChannelJoin(IChat *this, Channel* channel)
 {
     dprintf("IChat::RequestChannelJoin(this=%p, channel=%p)\n", this, channel);
 
-    irc_printf(this->irc, "JOINGAME #%s 1 %s", channel->name, channel->key);
+    if (channel->type == 0)
+    {
+        irc_printf(this->irc, "JOIN #%s %s", channel->name, channel->key);
+    }
+    else
+    {
+        irc_printf(this->irc, "JOINGAME #%s 1 %s", channel->name, channel->key);
+    }
 
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestChannelLeave(IChat *this)
+static HRESULT __stdcall _RequestChannelLeave(IChat *this)
 {
     dprintf("IChat::RequestChannelLeave(this=%p)\n", this);
 
@@ -177,13 +213,13 @@ static HRESULT __stdcall IChat_RequestChannelLeave(IChat *this)
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestUserList(IChat *this)
+static HRESULT __stdcall _RequestUserList(IChat *this)
 {
     dprintf("IChat::RequestUserList(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestPublicMessage(IChat *this, LPSTR message)
+static HRESULT __stdcall _RequestPublicMessage(IChat *this, LPSTR message)
 {
     dprintf("IChat::RequestPublicMessage(this=%p, message=\"%s\")\n", this, message);
 
@@ -192,7 +228,7 @@ static HRESULT __stdcall IChat_RequestPublicMessage(IChat *this, LPSTR message)
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestPrivateMessage(IChat *this, User* users, LPSTR message)
+static HRESULT __stdcall _RequestPrivateMessage(IChat *this, User* users, LPSTR message)
 {
     dprintf("IChat::RequestPrivateMessage(this=%p, users=%p, message=\"%s\")\n", this, users, message);
 
@@ -202,7 +238,7 @@ static HRESULT __stdcall IChat_RequestPrivateMessage(IChat *this, User* users, L
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestLogout(IChat *this)
+static HRESULT __stdcall _RequestLogout(IChat *this)
 {
     dprintf("IChat::RequestLogout(this=%p)\n", this);
 
@@ -211,7 +247,7 @@ static HRESULT __stdcall IChat_RequestLogout(IChat *this)
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestPrivateGameOptions(IChat *this, User* user, LPSTR options)
+static HRESULT __stdcall _RequestPrivateGameOptions(IChat *this, User* user, LPSTR options)
 {
     dprintf("IChat::RequestPrivateGameOptions(this=%p, user=%p, options=\"%s\")\n", this, user, options);
 
@@ -220,7 +256,7 @@ static HRESULT __stdcall IChat_RequestPrivateGameOptions(IChat *this, User* user
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestPublicGameOptions(IChat *this, LPSTR options)
+static HRESULT __stdcall _RequestPublicGameOptions(IChat *this, LPSTR options)
 {
     dprintf("IChat::RequestPublicGameOptions(this=%p, options=\"%s\")\n", this, options);
 
@@ -229,25 +265,25 @@ static HRESULT __stdcall IChat_RequestPublicGameOptions(IChat *this, LPSTR optio
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestPublicAction(IChat *this, LPSTR action)
+static HRESULT __stdcall _RequestPublicAction(IChat *this, LPSTR action)
 {
     dprintf("IChat::RequestPublicAction(this=%p, action=\"%s\")\n", this, action);
 
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestPrivateAction(IChat *this, User* users, LPSTR action)
+static HRESULT __stdcall _RequestPrivateAction(IChat *this, User* users, LPSTR action)
 {
     dprintf("IChat::RequestPrivateAction(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestGameStart(IChat *this, User* users)
+static HRESULT __stdcall _RequestGameStart(IChat *this, User* users)
 {
-    dprintf("IChat::RequestGameStart(this=%p, users=%p)\n", this, users);
-
     User *user = users;
     char buf[128] = { 0 };
+
+    dprintf("IChat::RequestGameStart(this=%p, users=%p)\n", this, users);
 
     while (user)
     {
@@ -262,28 +298,28 @@ static HRESULT __stdcall IChat_RequestGameStart(IChat *this, User* users)
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestChannelTopic(IChat *this, LPSTR topic)
+static HRESULT __stdcall _RequestChannelTopic(IChat *this, LPSTR topic)
 {
-    dprintf("IChat::RequestChannelTopic(this=%p, topic=\"%s\")\n", this);
+    dprintf("IChat::RequestChannelTopic(this=%p, topic=\"%s\")\n", this, topic);
 
     irc_printf(this->irc, "TOPIC #%s :%s", this->channel.name, topic);
 
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_GetVersion(IChat *this, unsigned long* version)
+static HRESULT __stdcall _GetVersion(IChat *this, unsigned long* version)
 {
     dprintf("IChat::GetVersion(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestUserKick(IChat *this, User* User)
+static HRESULT __stdcall _RequestUserKick(IChat *this, User* User)
 {
     dprintf("IChat::RequestUserKick(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestUserIP(IChat *this, User* user)
+static HRESULT __stdcall _RequestUserIP(IChat *this, User* user)
 {
     dprintf("IChat::RequestUserIP(this=%p, user=%p)\n", this, user);
     dprintf(" name: %s\n", user->name);
@@ -293,87 +329,128 @@ static HRESULT __stdcall IChat_RequestUserIP(IChat *this, User* user)
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_GetGametypeInfo(IChat *this, unsigned int gtype, int icon_size, unsigned char** bitmap, int* bmp_bytes, LPSTR* name, LPSTR* URL)
+static HRESULT __stdcall _GetGametypeInfo(IChat *this, unsigned int gtype, int icon_size, unsigned char** bitmap, int* bmp_bytes, LPSTR* name, LPSTR* URL)
 {
+    unsigned char bmp[1222];
+
     dprintf("IChat::GetGametypeInfo(this=%p, gtype=%d, icon_size=%d, bitmap=%p, bmp_bytes=%p, name=%p, URL=%p)\n", this, gtype, icon_size, bitmap, bmp_bytes, name, URL);
-    return S_FALSE;
+
+    switch (gtype)
+    {
+        case -1:
+            *name = "New Game";
+            break;
+        case 0:
+            *name = "Chat channels";
+            break;
+        case 1:
+            *name = "Command & Conquer Gold";
+            break;
+        case 2:
+            *name = "C&C Red Alert";
+            break;
+        case 3:
+            *name = "RA: Counterstrike";
+            break;
+        case 4:
+            *name = "RA: Aftermath";
+            break;
+        case 5:
+            *name = "C&C Sole Survivor";
+            break;
+        case 12:
+            *name = "Commando";
+            break;
+        case 14:
+            *name = "Dune 2000";
+            break;
+    }
+
+    *URL = "http://www.westwood.com/";
+
+    /* FIXME: handle icon correctly */
+    memset(bmp, 0, sizeof(bmp));
+    *bitmap = bmp;
+    *bmp_bytes = 1222;
+
+    return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestFind(IChat *this, User* User)
+static HRESULT __stdcall _RequestFind(IChat *this, User* User)
 {
     dprintf("IChat::RequestFind(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestPage(IChat *this, User* User, LPSTR message)
+static HRESULT __stdcall _RequestPage(IChat *this, User* User, LPSTR message)
 {
     dprintf("IChat::RequestPage(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_SetFindPage(IChat *this, int findOn, int pageOn)
+static HRESULT __stdcall _SetFindPage(IChat *this, int findOn, int pageOn)
 {
     dprintf("IChat::SetFindPage(this=%p, findOn=%d, pageOn=%d)\n", this, findOn, pageOn);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_SetSquelch(IChat *this, User* User, int squelch)
+static HRESULT __stdcall _SetSquelch(IChat *this, User* User, int squelch)
 {
     dprintf("IChat::SetSquelch(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_GetSquelch(IChat *this, User* User)
+static HRESULT __stdcall _GetSquelch(IChat *this, User* User)
 {
     dprintf("IChat::GetSquelch(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_SetChannelFilter(IChat *this, int channelType)
+static HRESULT __stdcall _SetChannelFilter(IChat *this, int channelType)
 {
     dprintf("IChat::SetChannelFilter(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestGameEnd(IChat *this)
+static HRESULT __stdcall _RequestGameEnd(IChat *this)
 {
     dprintf("IChat::RequestGameEnd(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_SetLangFilter(IChat *this, int onoff)
+static HRESULT __stdcall _SetLangFilter(IChat *this, int onoff)
 {
     dprintf("IChat::SetLangFilter(this=%p, onoff=%d)\n", this, onoff);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestChannelBan(IChat *this, LPSTR name, int ban)
+static HRESULT __stdcall _RequestChannelBan(IChat *this, LPSTR name, int ban)
 {
     dprintf("IChat::RequestChannelBan(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_GetGametypeList(IChat *this, LPSTR* list)
+static HRESULT __stdcall _GetGametypeList(IChat *this, LPSTR* list)
 {
     dprintf("IChat::GetGametypeList(this=%p, list=%p)\n", this, list);
-    /* comma separated list of integers, what are they? */
-    *list = "";
+    /* comma separated list of game ids, see GetGametypeInfo */
+    *list = "1,2,3,4,5,12,14";
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_GetHelpURL(IChat *this, LPSTR* URL)
+static HRESULT __stdcall _GetHelpURL(IChat *this, LPSTR* URL)
 {
     dprintf("IChat::GetHelpURL(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_SetProductSKU(IChat *this, unsigned long SKU)
+static HRESULT __stdcall _SetProductSKU(IChat *this, unsigned long SKU)
 {
     dprintf("IChat::SetProductSKU(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_GetNick(IChat *this, int num, LPSTR* nick, LPSTR* pass)
+static HRESULT __stdcall _GetNick(IChat *this, int num, LPSTR* nick, LPSTR* pass)
 {
     dprintf("IChat::GetNick(this=%p, num=%d, nick=%p, pass=%p)\n", this, num, nick, pass);
 
@@ -388,49 +465,49 @@ static HRESULT __stdcall IChat_GetNick(IChat *this, int num, LPSTR* nick, LPSTR*
     return S_FALSE;
 }
 
-static HRESULT __stdcall IChat_SetNick(IChat *this, int num, LPSTR nick, LPSTR pass, int domangle)
+static HRESULT __stdcall _SetNick(IChat *this, int num, LPSTR nick, LPSTR pass, int domangle)
 {
     dprintf("IChat::SetNick(this=%p, nick=\"%s\", pass=\"%s\", domangle=%d)\n", this, nick, pass, domangle);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_GetLobbyCount(IChat *this, int* count)
+static HRESULT __stdcall _GetLobbyCount(IChat *this, int* count)
 {
     dprintf("IChat::GetLobbyCount(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestRawMessage(IChat *this, LPSTR ircmsg)
+static HRESULT __stdcall _RequestRawMessage(IChat *this, LPSTR ircmsg)
 {
     dprintf("IChat::RequestRawMessage(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_GetAttributeValue(IChat *this, LPSTR attrib, LPSTR* value)
+static HRESULT __stdcall _GetAttributeValue(IChat *this, LPSTR attrib, LPSTR* value)
 {
     dprintf("IChat::GetAttributeValue(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_SetAttributeValue(IChat *this, LPSTR attrib, LPSTR value)
+static HRESULT __stdcall _SetAttributeValue(IChat *this, LPSTR attrib, LPSTR value)
 {
     dprintf("IChat::SetAttributeValue(this=%p, attrib=\"%s\", value=\"%s\")\n", this, attrib, value);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_SetChannelExInfo(IChat *this, LPSTR info)
+static HRESULT __stdcall _SetChannelExInfo(IChat *this, LPSTR info)
 {
     dprintf("IChat::SetChannelExInfo(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_StopAutoping(IChat *this)
+static HRESULT __stdcall _StopAutoping(IChat *this)
 {
     dprintf("IChat::StopAutoping(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IChat_RequestSquadInfo(IChat *this, unsigned long id)
+static HRESULT __stdcall _RequestSquadInfo(IChat *this, unsigned long id)
 {
     dprintf("IChat::RequestSquadInfo(this=%p, ...)\n", this);
     return S_OK;
@@ -439,53 +516,53 @@ static HRESULT __stdcall IChat_RequestSquadInfo(IChat *this, unsigned long id)
 static IChatVtbl Vtbl =
 {
     /* IUnknown */
-    IChat_QueryInterface,
-    IChat_AddRef,
-    IChat_Release,
+    _QueryInterface,
+    _AddRef,
+    _Release,
 
     /* IChat */
-    IChat_PumpMessages,
-    IChat_RequestServerList,
-    IChat_RequestConnection,
-    IChat_RequestChannelList,
-    IChat_RequestChannelCreate,
-    IChat_RequestChannelJoin,
-    IChat_RequestChannelLeave,
-    IChat_RequestUserList,
-    IChat_RequestPublicMessage,
-    IChat_RequestPrivateMessage,
-    IChat_RequestLogout,
-    IChat_RequestPrivateGameOptions,
-    IChat_RequestPublicGameOptions,
-    IChat_RequestPublicAction,
-    IChat_RequestPrivateAction,
-    IChat_RequestGameStart,
-    IChat_RequestChannelTopic,
-    IChat_GetVersion,
-    IChat_RequestUserKick,
-    IChat_RequestUserIP,
-    IChat_GetGametypeInfo,
-    IChat_RequestFind,
-    IChat_RequestPage,
-    IChat_SetFindPage,
-    IChat_SetSquelch,
-    IChat_GetSquelch,
-    IChat_SetChannelFilter,
-    IChat_RequestGameEnd,
-    IChat_SetLangFilter,
-    IChat_RequestChannelBan,
-    IChat_GetGametypeList,
-    IChat_GetHelpURL,
-    IChat_SetProductSKU,
-    IChat_GetNick,
-    IChat_SetNick,
-    IChat_GetLobbyCount,
-    IChat_RequestRawMessage,
-    IChat_GetAttributeValue,
-    IChat_SetAttributeValue,
-    IChat_SetChannelExInfo,
-    IChat_StopAutoping,
-    IChat_RequestSquadInfo
+    _PumpMessages,
+    _RequestServerList,
+    _RequestConnection,
+    _RequestChannelList,
+    _RequestChannelCreate,
+    _RequestChannelJoin,
+    _RequestChannelLeave,
+    _RequestUserList,
+    _RequestPublicMessage,
+    _RequestPrivateMessage,
+    _RequestLogout,
+    _RequestPrivateGameOptions,
+    _RequestPublicGameOptions,
+    _RequestPublicAction,
+    _RequestPrivateAction,
+    _RequestGameStart,
+    _RequestChannelTopic,
+    _GetVersion,
+    _RequestUserKick,
+    _RequestUserIP,
+    _GetGametypeInfo,
+    _RequestFind,
+    _RequestPage,
+    _SetFindPage,
+    _SetSquelch,
+    _GetSquelch,
+    _SetChannelFilter,
+    _RequestGameEnd,
+    _SetLangFilter,
+    _RequestChannelBan,
+    _GetGametypeList,
+    _GetHelpURL,
+    _SetProductSKU,
+    _GetNick,
+    _SetNick,
+    _GetLobbyCount,
+    _RequestRawMessage,
+    _GetAttributeValue,
+    _SetAttributeValue,
+    _SetChannelExInfo,
+    _StopAutoping,
+    _RequestSquadInfo
 };
 
 void hook_connect(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
@@ -501,21 +578,25 @@ void hook_liststart(IChat *this, const char *prefix, const char *command, int ar
 
 void hook_list(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
-    if (argc > 2 && argv[1][0] == '#')
+    if (argc > 4 && argv[1][0] == '#')
     {
         Channel *channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
         strcpy(channel->name, argv[1] + 1);
         channel->currentUsers = atoi(argv[2]);
+        channel->official = atoi(argv[3]);
+        channel->flags = atoi(argv[4]);
         channel_list_add(&this->channels, channel);
     }
 }
 
 void hook_listgame(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
+    Channel *channel;
+
     if (argc < 9)
         return;
 
-    Channel *channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
+    channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
 
     strcpy(channel->name, argv[1]+1);
     channel->currentUsers = atoi(argv[2]);
@@ -595,16 +676,16 @@ void hook_ping(IChat *this, const char *prefix, const char *command, int argc, c
 
 void hook_userip(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
-    /* currently as of 2011-12-27 PvPGN is faulty and returns only the ip, not the user */
+    User user;
+
     if (argc < 2)
         return;
 
-    User user;
     memset(&user, 0, sizeof(User));
     strcpy(user.name, argv[0]);
-    user.ipaddr = atoi(argv[1]);
+    user.ipaddr = inet_addr(argv[1]);
 
-    //IChatEvent_OnUserIP(this->ev, S_OK, &user);
+    IChatEvent_OnUserIP(this->ev, S_OK, &user);
 }
 
 void hook_gameopt(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
@@ -621,13 +702,11 @@ void hook_gameopt(IChat *this, const char *prefix, const char *command, int argc
     {
         Channel channel;
         memset(&channel, 0, sizeof(Channel));
-        strcpy(channel.name, argv[0]+1);
-        dprintf("public options from %s to %s: %s\n", user.name, channel.name, argv[1]);
+        strcpy(this->channel.name, argv[0]+1);
         IChatEvent_OnPublicGameOptions(this->ev, S_OK, &channel, &user, (char *)argv[1]);
     }
     else
     {
-        dprintf("private options from %s to %s: %s\n", user.name, argv[0], argv[1]);
         IChatEvent_OnPrivateGameOptions(this->ev, S_OK, &user, (char *)argv[1]);
     }
 }
@@ -635,6 +714,8 @@ void hook_gameopt(IChat *this, const char *prefix, const char *command, int argc
 void hook_joingame(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
     User user;
+    char buf[32];
+
     memset(&user, 0, sizeof(User));
 
     if (argc < 8)
@@ -645,25 +726,30 @@ void hook_joingame(IChat *this, const char *prefix, const char *command, int arg
     if (strcmp(user.name, this->user.name) == 0)
     {
         user.flags = CHAT_USER_MYSELF;
+    }
 
+    sprintf(buf, "#%s's_game", this->user.name);
+
+    if (user.flags & CHAT_USER_MYSELF && strcmp(argv[7], buf) == 0)
+    {
         this->channel.minUsers = atoi(argv[0]);
         this->channel.maxUsers = atoi(argv[1]);
+        this->channel.currentUsers = 1;
         this->channel.type = atoi(argv[2]);
         this->channel.tournament = atoi(argv[3]);
         this->channel.ipaddr = atol(argv[5]);
         strcpy(this->channel.name, argv[7]+1);
-    }
 
-    if (this->creating_channel)
-    {
         IChatEvent_OnChannelCreate(this->ev, S_OK, &this->channel);
+
+        /* RA hack, create our topic */
+        sprintf(this->channel.topic, "%c%d%d%d", this->channel.ingame ? 'G' : 'g', this->channel.minUsers, this->channel.maxUsers, 0 /* FIXME */);
+        IChat_RequestChannelTopic(this, this->channel.topic);
     }
     else
     {
         IChatEvent_OnChannelJoin(this->ev, S_OK, &this->channel, &user);
     }
-
-    this->creating_channel = 0;
 }
 
 void hook_namreply(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
@@ -735,6 +821,7 @@ void hook_startg(IChat *this, const char *prefix, const char *command, int argc,
 
     char buf[512];
     char users[512];
+    char *p;
 
     User *list = NULL;
     User *user = NULL;
@@ -749,9 +836,7 @@ void hook_startg(IChat *this, const char *prefix, const char *command, int argc,
     if (sscanf(buf, "%511[^:]:%d %d", users, &gameid, &now) < 3)
         return;
 
-    dprintf("gameid: %d, now: %d, users: \"%s\"\n", gameid, now, users);
-
-    char *p = strtok(users, " ");
+    p = strtok(users, " ");
     i = 0;
     do {
         if (strlen(p) < 2)
@@ -762,10 +847,8 @@ void hook_startg(IChat *this, const char *prefix, const char *command, int argc,
             user = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(User));
             user_list_add(&list, user);
             strcpy(user->name, p);
-            dprintf("new user name: \"%s\"\n", p);
             if (strcmp(user->name, this->user.name) == 0)
             {
-                dprintf("setting self flag\n");
                 user->flags |= CHAT_USER_MYSELF;
             }
             else
@@ -776,16 +859,11 @@ void hook_startg(IChat *this, const char *prefix, const char *command, int argc,
         else
         {
             user->ipaddr = inet_addr(p);
-            dprintf("and his ip: \"%s\" (%ul)\n", p, inet_addr(p));
         }
 
         p = strtok(NULL, " ");
         i++;
     } while(p);
-
-    dprintf("calling ongamestart\n");
-
-    printf("list: %p, first: %s, second: %s, third: %p\n", list, list->name, list->next->name, list->next->next);
 
     IChatEvent_OnGameStart(this->ev, S_OK, &this->channel, list, gameid);
 
@@ -803,14 +881,13 @@ void hook_debug(IChat *this, const char *prefix, const char *command, int argc, 
 
 IChat *IChat_New()
 {
-    dprintf("IChat::New()\n");
-
+    IChat *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IChat));
     WSADATA wsaData;
     WSAStartup(0x0101, &wsaData);
 
-    IChat *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IChat));
     this->lpVtbl = &Vtbl;
-    IChat_AddRef(this);
+    dprintf("IChat::New()\n");
+    _AddRef(this);
 
     /* set self flag, don't know the correct value yet */
     this->user.flags = CHAT_USER_MYSELF;

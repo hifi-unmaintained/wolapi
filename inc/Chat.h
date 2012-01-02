@@ -44,6 +44,8 @@ struct _ChatVtbl
     HRESULT(__stdcall *LockServer)                  (Chat *, BOOL);
 };
 
+#define Chat_CreateInstance(T,a,b,c) (T)->lpVtbl->CreateInstance(T,a,b,c)
+
 Chat* Chat_New();
 
 #endif

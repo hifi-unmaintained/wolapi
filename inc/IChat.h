@@ -31,7 +31,7 @@
 #define CHAT_E_JOINCHANNEL          0x800401F5
 
 #define CHAT_S_CON_CONNECTING       S_OK
-#define CHAT_S_CON_CONNECTED        S_OK
+#define CHAT_S_CON_CONNECTED        0x0004012D
 #define CHAT_S_CON_DISCONNECTING    0x0004012E
 #define CHAT_S_CON_DISCONNECTED     /*0x00040130*/ -1 /* seems to work with RA 3.03 */
 
@@ -120,6 +120,21 @@ struct _IChatVtbl
     HRESULT(__stdcall *StopAutoping)                (IChat *);
     HRESULT(__stdcall *RequestSquadInfo)            (IChat *, unsigned long id);
 };
+
+#define IChat_QueryInterface(T,a,b) (T)->lpVtbl->QueryInterface(T,a,b)
+
+#define IChat_PumpMessages(T) (T)->lpVtbl->PumpMessages(T)
+#define IChat_RequestServerList(T,a,b,c,d,e) (T)->lpVtbl->RequestServerList(T,a,b,c,d,e)
+#define IChat_RequestConnection(T,a,b,c) (T)->lpVtbl->RequestConnection(T,a,b,c)
+#define IChat_RequestChannelList(T,a,b) (T)->lpVtbl->RequestChannelList(T,a,b)
+#define IChat_RequestChannelCreate(T,a) (T)->lpVtbl->RequestChannelCreate(T,a)
+#define IChat_RequestChannelJoin(T,a) (T)->lpVtbl->RequestChannelJoin(T,a)
+#define IChat_RequestChannelLeave(T) (T)->lpVtbl->RequestChannelLeave(T)
+#define IChat_RequestChannelTopic(T,a) (T)->lpVtbl->RequestChannelTopic(T,a)
+#define IChat_GetGametypeInfo(T,a,b,c,d,e,f) (T)->lpVtbl->GetGametypeInfo(T,a,b,c,d,e,f)
+#define IChat_GetGametypeList(T,a) (T)->lpVtbl->GetGametypeList(T,a)
+#define IChat_GetAttributeValue(T,a,b) (T)->lpVtbl->GetAttributeValue(T,a,b)
+#define IChat_SetAttributeValue(T,a,b) (T)->lpVtbl->SetAttributeValue(T,a,b)
 
 extern IChat *IChatSingleton;
 IChat* IChat_New();

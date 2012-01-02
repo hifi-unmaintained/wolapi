@@ -32,6 +32,8 @@ struct _INetUtil
 
     int             ref;
     INetUtilEvent   *ev;
+    int             have_ladder;
+    Ladder          ladder;
 };
 
 struct _INetUtilVtbl

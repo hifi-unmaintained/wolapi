@@ -24,7 +24,7 @@ const GUID IID_INetUtilEvent      = {0xB832B0AC,0xA7D3,0x11D1,{0x97,0xC3,0x00,0x
 
 INetUtil *INetUtilSingleton = NULL;
 
-static HRESULT __stdcall INetUtil_QueryInterface(INetUtil *this, REFIID riid, void **ppvObject)
+static HRESULT __stdcall _QueryInterface(INetUtil *this, REFIID riid, void **ppvObject)
 {
     dprintf("INetUtil::QueryInterface(this=%p, riid={%s}, ppvObject=%p)\n", this, str_GUID(riid), ppvObject);
 
@@ -45,63 +45,73 @@ static HRESULT __stdcall INetUtil_QueryInterface(INetUtil *this, REFIID riid, vo
     return E_NOINTERFACE;
 }
 
-static ULONG __stdcall INetUtil_AddRef(INetUtil *this)
+static ULONG __stdcall _AddRef(INetUtil *this)
 {
     dprintf("INetUtil::AddRef(this=%p)\n", this);
     return ++this->ref;
 }
 
-static ULONG __stdcall INetUtil_Release(INetUtil *this)
+static ULONG __stdcall _Release(INetUtil *this)
 {
     dprintf("INetUtil::Release(this=%p)\n", this);
     return --this->ref;
 }
 
-static HRESULT __stdcall INetUtil_RequestGameresSend(INetUtil *this, LPSTR host, int port, unsigned char* data, int length)
+static HRESULT __stdcall _RequestGameresSend(INetUtil *this, LPSTR host, int port, unsigned char* data, int length)
 {
     dprintf("INetUtil::RequestGameresSend(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall INetUtil_RequestLadderSearch(INetUtil *this, LPSTR host, int port, LPSTR key, unsigned long SKU, int team, int cond, int sort, int number, int leading)
+static HRESULT __stdcall _RequestLadderSearch(INetUtil *this, LPSTR host, int port, LPSTR key, unsigned long SKU, int team, int cond, int sort, int number, int leading)
 {
     dprintf("INetUtil::RequestLadderSearch(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall INetUtil_RequestLadderList(INetUtil *this, LPSTR host, int port, LPSTR keys, unsigned long SKU, int team, int cond, int sort)
+static HRESULT __stdcall _RequestLadderList(INetUtil *this, LPSTR host, int port, LPSTR keys, unsigned long SKU, int team, int cond, int sort)
 {
     dprintf("INetUtil::RequestLadderList(this=%p, host=\"%s\", port=%d, keys=\"%s\", SKU=%d, team=%d, cond=%d, sort=%d)\n", this, host, port, keys, SKU, team, cond, sort);
     return S_FALSE;
 }
 
-static HRESULT __stdcall INetUtil_RequestPing(INetUtil *this, LPSTR host, int timeout, int* handle)
+static HRESULT __stdcall _RequestPing(INetUtil *this, LPSTR host, int timeout, int* handle)
 {
-    dprintf("INetUtil::RequestPing(this=%p, ...)\n", this);
-    return S_OK;
+#ifdef _VERBOSE
+    dprintf("INetUtil::RequestPing(this=%p, host=\"%s\", timeout=%d, handle=%p)\n", this, host, timeout, handle);
+#endif
+    return S_FALSE;
 }
 
-static HRESULT __stdcall INetUtil_PumpMessages(INetUtil *this)
+static HRESULT __stdcall _PumpMessages(INetUtil *this)
 {
 #ifdef _VERBOSE
     dprintf("INetUtil::PumpMessages(this=%p, ...)\n", this);
 #endif
+
+    if (this->have_ladder > -1 && --this->have_ladder == 0)
+    {
+        INetUtilEvent_OnLadderList(this->ev, S_OK, &this->ladder, 1, time(NULL)-3600, -1);
+    }
+
     return S_OK;
 }
 
-static HRESULT __stdcall INetUtil_GetAvgPing(INetUtil *this, unsigned long ip, int* avg)
+static HRESULT __stdcall _GetAvgPing(INetUtil *this, unsigned long ip, int* avg)
 {
-    dprintf("INetUtil::GetAvgPing(this=%p, ...)\n", this);
-    return S_OK;
+#ifdef _VERBOSE
+    dprintf("INetUtil::GetAvgPing(this=%p, ip=%d, avg=%p)\n", this, ip, avg);
+#endif
+    return S_FALSE;
 }
 
-static HRESULT __stdcall INetUtil_RequestNewNick(INetUtil *this, LPSTR nick, LPSTR pass, LPSTR email, LPSTR parentEmail, int newsletter)
+static HRESULT __stdcall _RequestNewNick(INetUtil *this, LPSTR nick, LPSTR pass, LPSTR email, LPSTR parentEmail, int newsletter)
 {
     dprintf("INetUtil::RequestNewNick(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall INetUtil_RequestAgeCheck(INetUtil *this, int month, int day, int year, LPSTR email)
+static HRESULT __stdcall _RequestAgeCheck(INetUtil *this, int month, int day, int year, LPSTR email)
 {
     dprintf("INetUtil::RequestAgeCheck(this=%p, ...)\n", this);
     return S_OK;
@@ -110,27 +120,26 @@ static HRESULT __stdcall INetUtil_RequestAgeCheck(INetUtil *this, int month, int
 static INetUtilVtbl Vtbl =
 {
     /* IUnknown */
-    INetUtil_QueryInterface,
-    INetUtil_AddRef,
-    INetUtil_Release,
+    _QueryInterface,
+    _AddRef,
+    _Release,
 
     /* INetUtil */
-    INetUtil_RequestGameresSend,
-    INetUtil_RequestLadderSearch,
-    INetUtil_RequestLadderList,
-    INetUtil_RequestPing,
-    INetUtil_PumpMessages,
-    INetUtil_GetAvgPing,
-    INetUtil_RequestNewNick,
-    INetUtil_RequestAgeCheck
+    _RequestGameresSend,
+    _RequestLadderSearch,
+    _RequestLadderList,
+    _RequestPing,
+    _PumpMessages,
+    _GetAvgPing,
+    _RequestNewNick,
+    _RequestAgeCheck
 };
 
 INetUtil *INetUtil_New()
 {
-    dprintf("INetUtil::New()\n");
-
     INetUtil *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(INetUtil));
     this->lpVtbl = &Vtbl;
-    INetUtil_AddRef(this);
+    dprintf("INetUtil::New()\n");
+    _AddRef(this);
     return this;
 }

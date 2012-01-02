@@ -46,6 +46,6 @@ struct _INetUtilEventVtbl
     HRESULT(__stdcall *OnAgeCheck)      (INetUtilEvent *, HRESULT res, int years, int consent);
 };
 
-#define INetUtil_OnLadderList(T,a,b,c,d,e) T->lpVtbl->OnLadderList(T,a,b,c,d,e)
+#define INetUtilEvent_OnLadderList(T,a,b,c,d,e) T->lpVtbl->OnLadderList(T,a,b,c,d,e)
 
 #endif

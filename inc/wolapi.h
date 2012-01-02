@@ -18,6 +18,7 @@
 #include <objbase.h>
 #include <ocidl.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _DEBUG
     #include <stdio.h>
@@ -38,24 +39,22 @@ typedef enum
     GT_CLIENT  = 2
 } GTYPE_;
 
-typedef struct _Server Server;
-struct _Server
+typedef struct Server
 {
-    int     gametype;
-    int     chattype;
-    int     timezone;
-    float   longitude;
-    float   lattitude;
-    Server* next;
-    char    name[71];
-    char    connlabel[5];
-    char    conndata[128];
-    char    login[10];
-    char    password[10];
-};
+    int             gametype;
+    int             chattype;
+    int             timezone;
+    float           longitude;
+    float           lattitude;
+    struct Server*  next;
+    char            name[71];
+    char            connlabel[5];
+    char            conndata[128];
+    char            login[10];
+    char            password[10];
+} Server;
 
-typedef struct _Channel Channel;
-struct _Channel
+typedef struct Channel
 {
     int             type;
     unsigned int    minUsers;
@@ -69,13 +68,13 @@ struct _Channel
     unsigned long   ipaddr;
     int             latency;
     int             hidden;
-    Channel*        next;
+    struct Channel* next;
     char            name[17];
     char            topic[81];
     char            location[65];
     char            key[9];
     char            exInfo[41];
-};
+} Channel;
 
 typedef struct _User User;
 struct _User
@@ -93,34 +92,31 @@ struct _User
     char            squadname[41];
 };
 
-typedef struct _Update Update;
-struct _Update
+typedef struct Update
 {
     unsigned long   SKU;
     unsigned long   version;
     int             required;
-    Update*         next;
+    struct Update*  next;
     char            Server[65];
     char            patchpath[256];
     char            patchfile[33];
     char            login[33];
     char            password[65];
     char            localpath[256];
-};
+} Update;
 
-typedef struct _Squad Squad;
-struct _Squad
+typedef struct Squad
 {
     unsigned long   id;
     int             SKU;
     int             members;
-    Squad*          next;
+    struct Squad*   next;
     char            URL[129];
     char            name[41];
-};
+} Squad;
 
-typedef struct _Ladder Ladder;
-struct _Ladder
+typedef struct Ladder
 {
     unsigned int    SKU;
     unsigned int    team_no;
@@ -137,9 +133,9 @@ struct _Ladder
     unsigned int    win_streak;
     unsigned int    reserved1;
     unsigned int    reserved2;
-    Ladder*         next;
+    struct Ladder*  next;
     char            login_name[40];
-};
+} Ladder;
 
 char *wol_strdup(const char *in);
 

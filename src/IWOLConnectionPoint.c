@@ -16,19 +16,19 @@
 
 #include <wolapi.h>
 
-static HRESULT __stdcall IWOLConnectionPoint_QueryInterface(IWOLConnectionPoint *this, REFIID riid, void **obj)
+static HRESULT __stdcall _QueryInterface(IWOLConnectionPoint *this, REFIID riid, void **obj)
 {
     dprintf("IWOLConnectionPoint::QueryInterface(this=%p, riid=%p, obj=%p)\n", this, riid, obj);
     return E_NOINTERFACE;
 }
 
-static ULONG __stdcall IWOLConnectionPoint_AddRef(IWOLConnectionPoint *this)
+static ULONG __stdcall _AddRef(IWOLConnectionPoint *this)
 {
     dprintf("IWOLConnectionPoint::AddRef(this=%p)\n", this);
     return ++this->ref;
 }
 
-static ULONG __stdcall IWOLConnectionPoint_Release(IWOLConnectionPoint *this)
+static ULONG __stdcall _Release(IWOLConnectionPoint *this)
 {
     dprintf("IWOLConnectionPoint::Release(this=%p)\n", this);
     if (--this->ref == 0)
@@ -40,7 +40,7 @@ static ULONG __stdcall IWOLConnectionPoint_Release(IWOLConnectionPoint *this)
     return this->ref;
 }
 
-static HRESULT __stdcall IWOLConnectionPoint_Advise(IWOLConnectionPoint *this, IUnknown *pUnkSink, DWORD *pdwCookie)
+static HRESULT __stdcall _Advise(IWOLConnectionPoint *this, IUnknown *pUnkSink, DWORD *pdwCookie)
 {
     dprintf("IWOLConnectionPoint::Advise(this=%p, pUnkSink=%p, pdwCookie=%p)\n", this, pUnkSink, pdwCookie);
 
@@ -97,25 +97,25 @@ static HRESULT __stdcall IWOLConnectionPoint_Advise(IWOLConnectionPoint *this, I
     return S_OK;
 }
 
-static HRESULT __stdcall IWOLConnectionPoint_EnumConnections(IWOLConnectionPoint *this, IEnumConnections **ppEnum)
+static HRESULT __stdcall _EnumConnections(IWOLConnectionPoint *this, IEnumConnections **ppEnum)
 {
     dprintf("IWOLConnectionPoint::EnumConnections(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IWOLConnectionPoint_GetConnectionInterface(IWOLConnectionPoint *this, IID *pIID)
+static HRESULT __stdcall _GetConnectionInterface(IWOLConnectionPoint *this, IID *pIID)
 {
     dprintf("IWOLConnectionPoint::GetConnectionInterface(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IWOLConnectionPoint_GetConnectionPointContainer(IWOLConnectionPoint *this, IConnectionPointContainer **ppCPC)
+static HRESULT __stdcall _GetConnectionPointContainer(IWOLConnectionPoint *this, IConnectionPointContainer **ppCPC)
 {
     dprintf("IWOLConnectionPoint::GetConnectionPointContainer(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IWOLConnectionPoint_Unadvise(IWOLConnectionPoint *this, DWORD dwCookie)
+static HRESULT __stdcall _Unadvise(IWOLConnectionPoint *this, DWORD dwCookie)
 {
     dprintf("IWOLConnectionPoint::Unadvise(this=%p, dwCookie=%08X)\n", this, dwCookie);
 
@@ -145,25 +145,24 @@ static HRESULT __stdcall IWOLConnectionPoint_Unadvise(IWOLConnectionPoint *this,
 static IWOLConnectionPointVtbl Vtbl =
 {
     /* IUnknown */
-    IWOLConnectionPoint_QueryInterface,
-    IWOLConnectionPoint_AddRef,
-    IWOLConnectionPoint_Release,
+    _QueryInterface,
+    _AddRef,
+    _Release,
 
     /* IWOLConnectionPoint */
-    IWOLConnectionPoint_GetConnectionInterface,
-    IWOLConnectionPoint_GetConnectionPointContainer,
-    IWOLConnectionPoint_Advise,
-    IWOLConnectionPoint_Unadvise,
-    IWOLConnectionPoint_EnumConnections
+    _GetConnectionInterface,
+    _GetConnectionPointContainer,
+    _Advise,
+    _Unadvise,
+    _EnumConnections
 };
 
 IWOLConnectionPoint *IWOLConnectionPoint_New(REFIID riid)
 {
-    dprintf("IWOLConnectionPoint::New({%s})\n", str_GUID(riid));
-
     IWOLConnectionPoint *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IWOLConnectionPoint));
     this->lpVtbl = &Vtbl;
     memcpy(&this->iid, riid, sizeof(IID));
-    IWOLConnectionPoint_AddRef(this);
+    dprintf("IWOLConnectionPoint::New({%s})\n", str_GUID(riid));
+    _AddRef(this);
     return this;
 }

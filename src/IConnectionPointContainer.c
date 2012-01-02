@@ -16,31 +16,31 @@
 
 #include <wolapi.h>
 
-static HRESULT __stdcall IConnectionPointContainer_QueryInterface(IConnectionPointContainer *this, REFIID riid, void **obj)
+static HRESULT __stdcall _QueryInterface(IConnectionPointContainer *this, REFIID riid, void **obj)
 {
     dprintf("IConnectionPointContainer::QueryInterface(this=%p, riid=%p, obj=%p)\n", this, riid, obj);
     return E_NOINTERFACE;
 }
 
-static ULONG __stdcall IConnectionPointContainer_AddRef(IConnectionPointContainer *this)
+static ULONG __stdcall _AddRef(IConnectionPointContainer *this)
 {
     dprintf("IConnectionPointContainer::AddRef(this=%p)\n", this);
     return 1;
 }
 
-static ULONG __stdcall IConnectionPointContainer_Release(IConnectionPointContainer *this)
+static ULONG __stdcall _Release(IConnectionPointContainer *this)
 {
     dprintf("IConnectionPointContainer::Release(this=%p)\n", this);
     return 1;
 }
 
-static HRESULT __stdcall IConnectionPointContainer_EnumConnectionPoints(IConnectionPointContainer *this, IEnumConnectionPoints **ppEnum)
+static HRESULT __stdcall _EnumConnectionPoints(IConnectionPointContainer *this, IEnumConnectionPoints **ppEnum)
 {
     dprintf("IConnectionPointContainer::EnumConnectionPoints(this=%p, ...)\n", this);
     return S_OK;
 }
 
-static HRESULT __stdcall IConnectionPointContainer_FindConnectionPoint(IConnectionPointContainer *this, REFIID riid, IConnectionPoint **ppCP)
+static HRESULT __stdcall _FindConnectionPoint(IConnectionPointContainer *this, REFIID riid, IConnectionPoint **ppCP)
 {
     dprintf("IConnectionPointContainer::EnumConnectionPoints(this=%p, riid={%s}, ppCP=%p)\n", this, str_GUID(riid), ppCP);
 
@@ -64,13 +64,13 @@ static HRESULT __stdcall IConnectionPointContainer_FindConnectionPoint(IConnecti
 static IConnectionPointContainerVtbl Vtbl =
 {
     /* IUnknown */
-    IConnectionPointContainer_QueryInterface,
-    IConnectionPointContainer_AddRef,
-    IConnectionPointContainer_Release,
+    _QueryInterface,
+    _AddRef,
+    _Release,
 
     /* IConnectionPointContainer */
-    IConnectionPointContainer_EnumConnectionPoints,
-    IConnectionPointContainer_FindConnectionPoint
+    _EnumConnectionPoints,
+    _FindConnectionPoint
 };
 
 IConnectionPointContainer IConnectionPointContainerSingleton = { &Vtbl };

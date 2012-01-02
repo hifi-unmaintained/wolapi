@@ -120,6 +120,8 @@ HRESULT __stdcall DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 {
     dprintf("DllGetClassObject(irclsid={%s}, riid=%p, ppv=%p)\n", str_GUID(rclsid), riid, ppv);
 
+    dprintf(" riid = {%s}\n", str_GUID(riid));
+
     if (IsEqualCLSID(rclsid, &CLSID_Chat))
     {
         dprintf(" Chat Class requested\n");

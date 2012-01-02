@@ -19,25 +19,25 @@
 /* {4DD3BAF5-7579-11D1-B1C6-006097176556} */
 const GUID CLSID_Chat               = {0x4DD3BAF5,0x7579,0x11D1,{0xB1,0xC6,0x00,0x60,0x97,0x17,0x65,0x56}};
 
-static HRESULT __stdcall Chat_QueryInterface(Chat *this, REFIID riid, void **obj)
+static HRESULT __stdcall _QueryInterface(Chat *this, REFIID riid, void **obj)
 {
     dprintf("Chat::QueryInterface(this=%p, riid=%p, obj=%p)\n", this, riid, obj);
     return E_NOINTERFACE;
 }
 
-static ULONG __stdcall Chat_AddRef(Chat *this)
+static ULONG __stdcall _AddRef(Chat *this)
 {
     dprintf("Chat::AddRef(this=%p)\n", this);
     return ++this->ref;
 }
 
-static ULONG __stdcall Chat_Release(Chat *this)
+static ULONG __stdcall _Release(Chat *this)
 {
     dprintf("Chat::Release(this=%p)\n", this);
     return --this->ref;
 }
 
-static HRESULT __stdcall Chat_CreateInstance(Chat *this, IUnknown *pUnkOuter, REFIID riid, void **ppvObject)
+static HRESULT __stdcall _CreateInstance(Chat *this, IUnknown *pUnkOuter, REFIID riid, void **ppvObject)
 {
     dprintf("Chat::CreateInstance(this=%p, pUnkOuter=%p, riid={%s}, ppvObject=%p)\n", this, pUnkOuter, str_GUID(riid), ppvObject);
 
@@ -51,7 +51,7 @@ static HRESULT __stdcall Chat_CreateInstance(Chat *this, IUnknown *pUnkOuter, RE
     return E_NOINTERFACE;
 }
 
-static HRESULT __stdcall Chat_LockServer(Chat *this, BOOL fLock)
+static HRESULT __stdcall _LockServer(Chat *this, BOOL fLock)
 {
     dprintf("Chat::LockServer(this=%p, fLock=%s)\n", this, fLock ? "true" : "false");
     return S_OK;
@@ -60,21 +60,20 @@ static HRESULT __stdcall Chat_LockServer(Chat *this, BOOL fLock)
 static ChatVtbl Vtbl =
 {
     /* IUnknown */
-    Chat_QueryInterface,
-    Chat_AddRef,
-    Chat_Release,
+    _QueryInterface,
+    _AddRef,
+    _Release,
 
     /* Chat */
-    Chat_CreateInstance,
-    Chat_LockServer
+    _CreateInstance,
+    _LockServer
 };
 
 Chat* Chat_New()
 {
-    dprintf("Chat::New()\n");
-
     Chat *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Chat));
     this->lpVtbl = &Vtbl;
-    Chat_AddRef(this);
+    dprintf("Chat::New()\n");
+    _AddRef(this);
     return this;
 }
