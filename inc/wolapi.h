@@ -20,11 +20,11 @@
 #include <string.h>
 #include <time.h>
 
-#ifdef _DEBUG
+#if _DEBUG
     #include <stdio.h>
     #define dprintf printf
 #else
-    #define dprintf(...)
+    int dprintf(const char *, ...);
 #endif
 
 #ifndef _WOLAPI_H_

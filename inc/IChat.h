@@ -15,6 +15,7 @@
  */
 
 #include <wolapi.h>
+#include <stdio.h>
 
 #ifndef _ICHAT_H_
 #define _ICHAT_H_

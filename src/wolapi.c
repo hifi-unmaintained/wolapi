@@ -56,6 +56,13 @@ char *wol_strdup(const char *in)
     return out;
 }
 
+#if !_DEBUG
+int dprintf(const char *fmt, ...)
+{
+    return 0;
+}
+#endif
+
 HRESULT __stdcall DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 {
     dprintf("DllGetClassObject(irclsid={%s}, riid=%p, ppv=%p)\n", str_GUID(rclsid), riid, ppv);
