@@ -3,15 +3,15 @@ Westwood Online API
 
 This is my reverse-engineered version of the Westwood Online DLL in plain C.
 
-It doesn't yet do much but allows Red Alert 3.03 to login and logout.
+Allows Red Alert 3.03 to connect to WOL, create or join a room and start a game.
 
 Missing features currently include:
  * Dll registration and unregistration (register original dll first)
- * Actual networking
  * Correctly handling more than one instance of any interface which is not
    probably needed as the games only initialize one instance per session
  * Class documentation
  * Developer documentation
+ * Various hacks that are in the original wolapi.dll
 
 More information about the project is available at IRC:
 
