@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Toni Spets <toni.spets@iki.fi>
+ * Copyright (c) 2011, 2012 Toni Spets <toni.spets@iki.fi>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -34,7 +34,7 @@ static ULONG __stdcall _Release(IWOLConnectionPoint *this)
     if (--this->ref == 0)
     {
         dprintf(" releasing memory\n");
-        HeapFree(GetProcessHeap(), 0, this);
+        free(this);
         return 0;
     }
     return this->ref;
@@ -159,7 +159,7 @@ static IWOLConnectionPointVtbl Vtbl =
 
 IWOLConnectionPoint *IWOLConnectionPoint_New(REFIID riid)
 {
-    IWOLConnectionPoint *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IWOLConnectionPoint));
+    IWOLConnectionPoint *this = calloc(1, sizeof(IWOLConnectionPoint));
     this->lpVtbl = &Vtbl;
     memcpy(&this->iid, riid, sizeof(IID));
     dprintf("IWOLConnectionPoint::New({%s})\n", str_GUID(riid));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Toni Spets <toni.spets@iki.fi>
+ * Copyright (c) 2011, 2012 Toni Spets <toni.spets@iki.fi>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -20,6 +20,13 @@
 #define _ICHAT2_H_
 
 /* IChat2 Interface */
+
+typedef enum
+{
+    GT_Server  = 0,
+    GT_Channel = 1,
+    GT_CLIENT  = 2
+} GTYPE_;
 
 extern const GUID IID_IChat2;
 

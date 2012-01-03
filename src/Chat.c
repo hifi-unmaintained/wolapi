@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Toni Spets <toni.spets@iki.fi>
+ * Copyright (c) 2011, 2012 Toni Spets <toni.spets@iki.fi>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -71,7 +71,7 @@ static ChatVtbl Vtbl =
 
 Chat* Chat_New()
 {
-    Chat *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Chat));
+    Chat *this = calloc(1, sizeof(Chat));
     this->lpVtbl = &Vtbl;
     dprintf("Chat::New()\n");
     _AddRef(this);

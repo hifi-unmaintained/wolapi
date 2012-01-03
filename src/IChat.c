@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Toni Spets <toni.spets@iki.fi>
+ * Copyright (c) 2011, 2012 Toni Spets <toni.spets@iki.fi>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -280,16 +280,15 @@ static HRESULT __stdcall _RequestPrivateAction(IChat *this, User* users, LPSTR a
 
 static HRESULT __stdcall _RequestGameStart(IChat *this, User* users)
 {
-    User *user = users;
+    User *user;
     char buf[128] = { 0 };
 
     dprintf("IChat::RequestGameStart(this=%p, users=%p)\n", this, users);
 
-    while (user)
+    WOL_LIST_FOREACH(users, user)
     {
         strcat(buf, user->name);
-        user = user->next;
-        if (user)
+        if (user->next)
             strcat(buf, ",");
     }
 
@@ -573,19 +572,19 @@ void hook_connect(IChat *this, const char *prefix, const char *command, int argc
 
 void hook_liststart(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
-    channel_list_free(&this->channels);
+    WOL_LIST_FREE(this->channels);
 }
 
 void hook_list(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
     if (argc > 4 && argv[1][0] == '#')
     {
-        Channel *channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
+        Channel *channel = calloc(1, sizeof(Channel));
         strcpy(channel->name, argv[1] + 1);
         channel->currentUsers = atoi(argv[2]);
         channel->official = atoi(argv[3]);
         channel->flags = atoi(argv[4]);
-        channel_list_add(&this->channels, channel);
+        WOL_LIST_INSERT(this->channels, channel);
     }
 }
 
@@ -596,7 +595,7 @@ void hook_listgame(IChat *this, const char *prefix, const char *command, int arg
     if (argc < 9)
         return;
 
-    channel = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Channel));
+    channel = calloc(1, sizeof(Channel));
 
     strcpy(channel->name, argv[1]+1);
     channel->currentUsers = atoi(argv[2]);
@@ -608,7 +607,7 @@ void hook_listgame(IChat *this, const char *prefix, const char *command, int arg
 
     sscanf(argv[8], "%u::%s", &channel->flags, channel->topic);
 
-    channel_list_add(&this->channels, channel);
+    WOL_LIST_INSERT(this->channels, channel);
 }
 
 void hook_listend(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
@@ -766,7 +765,7 @@ void hook_namreply(IChat *this, const char *prefix, const char *command, int arg
 
             if (sscanf(ptr, "%15[^,],%*u,%u", name, &ipaddr))
             {
-                User *user = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(User));
+                User *user = WOL_LIST_NEW(User);
 
                 if (name[0] == '@')
                 {
@@ -783,7 +782,7 @@ void hook_namreply(IChat *this, const char *prefix, const char *command, int arg
 
                 user->ipaddr = ipaddr;
 
-                user_list_add(&this->users, user);
+                WOL_LIST_INSERT(this->users, user);
             }
 
             ptr = strtok(NULL, " ");
@@ -796,7 +795,7 @@ void hook_namreply(IChat *this, const char *prefix, const char *command, int arg
 void hook_endofnames(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
     IChatEvent_OnUserList(this->ev, S_OK, &this->channel, this->users);
-    user_list_free(&this->users);
+    WOL_LIST_FREE(this->users);
 }
 
 void hook_notopic(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
@@ -844,8 +843,8 @@ void hook_startg(IChat *this, const char *prefix, const char *command, int argc,
 
         if (i % 2 == 0)
         {
-            user = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(User));
-            user_list_add(&list, user);
+            user = WOL_LIST_NEW(User);
+            WOL_LIST_INSERT(list, user);
             strcpy(user->name, p);
             if (strcmp(user->name, this->user.name) == 0)
             {
@@ -867,7 +866,7 @@ void hook_startg(IChat *this, const char *prefix, const char *command, int argc,
 
     IChatEvent_OnGameStart(this->ev, S_OK, &this->channel, list, gameid);
 
-    user_list_free(&list);
+    WOL_LIST_FREE(list);
 }
 
 void hook_debug(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
@@ -881,7 +880,7 @@ void hook_debug(IChat *this, const char *prefix, const char *command, int argc, 
 
 IChat *IChat_New()
 {
-    IChat *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IChat));
+    IChat *this = calloc(1, sizeof(IChat));
     WSADATA wsaData;
     WSAStartup(0x0101, &wsaData);
 

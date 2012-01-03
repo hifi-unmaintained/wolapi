@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Toni Spets <toni.spets@iki.fi>
+ * Copyright (c) 2011,2012 Toni Spets <toni.spets@iki.fi>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -45,66 +45,6 @@ const char *str_GUID(REFGUID riid)
             riid->Data4[0], riid->Data4[1], riid->Data4[2], riid->Data4[3],
             riid->Data4[4], riid->Data4[5], riid->Data4[6], riid->Data4[7]);
     return (const char*)buf;
-}
-
-void user_list_add(User **list, User *user)
-{
-    User *current = *list;
-
-    if (*list == NULL)
-    {
-        *list = user;
-        return;
-    }
-
-    while (current->next)
-    {
-        current = current->next;
-    }
-
-    current->next = user;
-}
-
-void user_list_free(User **list)
-{
-    User *current = *list;
-    while (current)
-    {
-        User *tmp = current;
-        current = current->next;
-        HeapFree(GetProcessHeap(), 0, tmp);
-    }
-    *list = NULL;
-}
-
-void channel_list_add(Channel **list, Channel *channel)
-{
-    Channel *current = *list;
-
-    if (*list == NULL)
-    {
-        *list = channel;
-        return;
-    }
-
-    while (current->next)
-    {
-        current = current->next;
-    }
-
-    current->next = channel;
-}
-
-void channel_list_free(Channel **list)
-{
-    Channel *current = *list;
-    while (current)
-    {
-        Channel *tmp = current;
-        current = current->next;
-        HeapFree(GetProcessHeap(), 0, tmp);
-    }
-    *list = NULL;
 }
 
 char *wol_strdup(const char *in)

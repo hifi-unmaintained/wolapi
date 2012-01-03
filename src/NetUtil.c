@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Toni Spets <toni.spets@iki.fi>
+ * Copyright (c) 2011,2012 Toni Spets <toni.spets@iki.fi>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -71,7 +71,7 @@ static NetUtilVtbl Vtbl =
 
 NetUtil* NetUtil_New()
 {
-    NetUtil *this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(NetUtil));
+    NetUtil *this = calloc(1, sizeof(NetUtil));
     this->lpVtbl = &Vtbl;
     dprintf("NetUtil::New()\n");
     _AddRef(this);

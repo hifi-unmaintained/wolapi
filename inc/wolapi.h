@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Toni Spets <toni.spets@iki.fi>
+ * Copyright (c) 2011, 2012 Toni Spets <toni.spets@iki.fi>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,15 +29,6 @@
 
 #ifndef _WOLAPI_H_
 #define _WOLAPI_H_
-
-const char *str_GUID(REFGUID);
-
-typedef enum
-{
-    GT_Server  = 0,
-    GT_Channel = 1,
-    GT_CLIENT  = 2
-} GTYPE_;
 
 typedef struct Server
 {
@@ -136,13 +127,70 @@ typedef struct Ladder
     char            login_name[40];
 } Ladder;
 
-char *wol_strdup(const char *in);
+#define WOL_ALLOC(size)                                     \
+    calloc(1, size)
 
-/* linked list handlers, could use a define macro wrapper */
-void user_list_add(User **list, User *user);
-void user_list_free(User **list);
-void channel_list_add(Channel **list, Channel *channel);
-void channel_list_free(Channel **list);
+#define WOL_FREE(ptr)                                       \
+    free(ptr)
+
+/* linked list handling macros for the structures above */
+
+#define WOL_LIST_NEW(type)                                  \
+    WOL_ALLOC(sizeof(type))
+
+#define WOL_LIST_FREE(el)                                   \
+    while (el)                                              \
+    {                                                       \
+        void *_eltmp = (el);                                \
+        (el) = (el)->next;                                  \
+        free(_eltmp);                                       \
+    }                                                       \
+    (el) = NULL
+
+#define WOL_LIST_INSERT(list, el)                           \
+    if ((list) == NULL)                                     \
+    {                                                       \
+        (list) = (el);                                      \
+    }                                                       \
+    else                                                    \
+    {                                                       \
+        void *_eltmp = (el);                                \
+        WOL_LIST_FOREACH(list, el)                          \
+        {                                                   \
+            if ((el)->next == NULL)                         \
+            {                                               \
+                (el)->next = _eltmp;                        \
+                (el) = _eltmp;                              \
+                break;                                      \
+            }                                               \
+        }                                                   \
+    }
+
+#define WOL_LIST_FOREACH(list, el)                          \
+    for ((el) = (list); (el) != NULL; (el) = (el)->next)
+
+#define WOL_LIST_REMOVE(list, el)                           \
+    if ((list) == (el))                                     \
+    {                                                       \
+        (list) = NULL;                                      \
+    }                                                       \
+    else                                                    \
+    {                                                       \
+        void *_eltmp = (el);                                \
+        (el) = (list);                                      \
+        do {                                                \
+            if ((el)->next == _eltmp)                       \
+            {                                               \
+                (el)->next = (el)->next->next;              \
+                (el) = _eltmp;                              \
+                break;                                      \
+            }                                               \
+            (el) = (el)->next;                              \
+        } while(el);                                        \
+    }
+
+char *wol_strdup(const char *in);
+const char *str_GUID(REFGUID);
 
 #include "irc.h"
 #include "IRTPatcherEvent.h"
