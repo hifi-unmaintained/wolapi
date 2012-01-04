@@ -80,7 +80,7 @@ static HRESULT __stdcall _RequestServerList(IChat *this, unsigned long SKU, unsi
     irc.gametype = SKU;
     strcpy(irc.name, "Live chat server");
     strcpy(irc.connlabel, "IRC");
-    strcpy(irc.conndata, "TCP;192.168.1.2;4000");
+    strcpy(irc.conndata, "TCP;irc.xwis.net;4000");
 
     memset(&lad, 0, sizeof(Server));
     lad.gametype = SKU;
@@ -103,6 +103,8 @@ static HRESULT __stdcall _RequestServerList(IChat *this, unsigned long SKU, unsi
 
     return S_OK;
 }
+
+char *wol_apgar(const char *);
 
 static HRESULT __stdcall _RequestConnection(IChat *this, Server* server, int timeout, int domangle)
 {
@@ -136,7 +138,7 @@ static HRESULT __stdcall _RequestConnection(IChat *this, Server* server, int tim
     irc_printf(this->irc, "CVERS %d %d", 11020, 5376);
     irc_printf(this->irc, "PASS %s", "supersecret");
     irc_printf(this->irc, "NICK %s", server->login);
-    irc_printf(this->irc, "apgar %s 0", "abcdefg");
+    irc_printf(this->irc, "apgar %s 0", wol_apgar(server->password));
     irc_printf(this->irc, "");
     irc_printf(this->irc, "SERIAL %s", "");
     irc_printf(this->irc, "USER UserName HostName irc.westwood.com :RealName");
@@ -471,15 +473,6 @@ static HRESULT __stdcall _SetProductSKU(IChat *this, unsigned long SKU)
 static HRESULT __stdcall _GetNick(IChat *this, int num, LPSTR* nick, LPSTR* pass)
 {
     dprintf("IChat::GetNick(this=%p, num=%d, nick=%p, pass=%p)\n", this, num, nick, pass);
-
-    /* just throw something back so the game won't ask for registration */
-    if (num == 1)
-    {
-        *nick = "WOLGuest";
-        *pass = "guest";
-        return S_OK;
-    }
-
     return S_FALSE;
 }
 
