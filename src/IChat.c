@@ -247,11 +247,30 @@ static HRESULT __stdcall _RequestLogout(IChat *this)
     return S_OK;
 }
 
+void hook_gameopt(IChat *this, const char *prefix, const char *command, int argc, const char *argv[]);
+
 static HRESULT __stdcall _RequestPrivateGameOptions(IChat *this, User* user, LPSTR options)
 {
     dprintf("IChat::RequestPrivateGameOptions(this=%p, user=%p, options=\"%s\")\n", this, user, options);
 
     irc_printf(this->irc, "GAMEOPT %s :%s", user->name, options);
+
+    if (this->SKU == SKU_RA303)
+    {
+        Gameopt *go;
+
+        this->gameopt_sent = 1;
+
+        WOL_LIST_FOREACH(this->gameopt_queue, go)
+        {
+            char *argv[2];
+            argv[0] = go->argv[0];
+            argv[1] = go->argv[1];
+            hook_gameopt(this, go->prefix, go->command, 2, (const char **)argv);
+        }
+
+        WOL_LIST_FREE(this->gameopt_queue);
+    }
 
     return S_OK;
 }
@@ -607,6 +626,9 @@ void hook_listgame(IChat *this, const char *prefix, const char *command, int arg
 
     sscanf(argv[8], "%u::%s", &channel->flags, channel->topic);
 
+    /* RA hack: read in the topic variables mainly for maxUsers, I don't know how minUsers is used */
+    sscanf(channel->topic, "%*1[gG]%1u%1u", &channel->minUsers, &channel->maxUsers);
+
     WOL_LIST_INSERT(this->channels, channel);
 }
 
@@ -659,6 +681,7 @@ void hook_part(IChat *this, const char *prefix, const char *command, int argc, c
         if (strcmp(user.name, this->user.name) == 0)
         {
             user.flags = CHAT_USER_MYSELF;
+            this->gameopt_sent = 0;
         }
 
         IChatEvent_OnChannelLeave(this->ev, S_OK, &channel, &user);
@@ -694,6 +717,20 @@ void hook_gameopt(IChat *this, const char *prefix, const char *command, int argc
 
     if (argc < 2)
         return;
+
+    if (this->SKU == SKU_RA303 && !this->gameopt_sent)
+    {
+        Gameopt *go = WOL_LIST_NEW(Gameopt);
+
+        strcpy(go->prefix, prefix);
+        strcpy(go->command, command);
+        strcpy(go->argv[0], argv[0]);
+        strcpy(go->argv[1], argv[1]);
+
+        WOL_LIST_INSERT(this->gameopt_queue, go);
+        dprintf("hook_gameopt: no gameopt was yet sent so postponing this\n");
+        return;
+    }
 
     irc_parse_prefix(prefix, user.name, NULL);
 
@@ -740,6 +777,8 @@ void hook_joingame(IChat *this, const char *prefix, const char *command, int arg
         strcpy(this->channel.name, argv[7]+1);
 
         IChatEvent_OnChannelCreate(this->ev, S_OK, &this->channel);
+
+        this->gameopt_sent = 1;
 
         /* RA hack, create our topic */
         sprintf(this->channel.topic, "%c%d%d%d", this->channel.ingame ? 'G' : 'g', this->channel.minUsers, this->channel.maxUsers, 0 /* FIXME */);

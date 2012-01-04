@@ -47,6 +47,16 @@
 
 #define CHAN_MODE_KEY               (1 << 8)
 
+#define SKU_RA303                   0x00001500
+
+typedef struct Gameopt
+{
+    char            prefix[128];
+    char            command[128];
+    char            argv[2][512];
+    struct Gameopt* next;
+} Gameopt;
+
 extern const GUID IID_IChat;
 
 typedef struct _IChat       IChat;
@@ -66,8 +76,9 @@ struct _IChat
     Channel         channel;
     Channel         *channels;
     char            motd[4096];
-    int             creating_channel;
     irc_session     *irc;
+    int             gameopt_sent; /* RA 3.03 hack */
+    Gameopt         *gameopt_queue;
 };
 
 struct _IChatVtbl
