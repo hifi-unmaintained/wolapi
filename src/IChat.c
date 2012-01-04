@@ -290,12 +290,18 @@ static HRESULT __stdcall _RequestPublicAction(IChat *this, LPSTR action)
 {
     dprintf("IChat::RequestPublicAction(this=%p, action=\"%s\")\n", this, action);
 
+    irc_printf(this->irc, "PRIVMSG #%s :\001ACTION %s\001", this->channel.name, action);
+
     return S_OK;
 }
 
 static HRESULT __stdcall _RequestPrivateAction(IChat *this, User* users, LPSTR action)
 {
-    dprintf("IChat::RequestPrivateAction(this=%p, ...)\n", this);
+    dprintf("IChat::RequestPrivateAction(this=%p, action=\"%s\")\n", this, action);
+
+    /* FIXME: handle multiple recipients */
+    irc_printf(this->irc, "PRIVMSG %s :\001ACTION %s\001", users->name, action);
+
     return S_OK;
 }
 
@@ -708,6 +714,51 @@ void hook_ping(IChat *this, const char *prefix, const char *command, int argc, c
     }
 }
 
+void hook_privmsg(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    User user;
+    char message[512];
+    int action = 0;
+
+    if (argc < 2)
+        return;
+
+    if ((action = sscanf(argv[1], "\001ACTION %511[^\001]\001", message)) < 1)
+    {
+        strcpy(message, argv[1]);
+    }
+
+    memset(&user, 0, sizeof(User));
+    irc_parse_prefix(prefix, user.name, NULL);
+
+    if (argv[0][0] == '#')
+    {
+        Channel channel;
+        memset(&channel, 0, sizeof(Channel));
+        strcpy(this->channel.name, argv[0]+1);
+
+        if (action)
+        {
+            IChatEvent_OnPublicAction(this->ev, S_OK, &channel, &user, message);
+        }
+        else
+        {
+            IChatEvent_OnPublicMessage(this->ev, S_OK, &channel, &user, message);
+        }
+    }
+    else
+    {
+        if (action)
+        {
+            IChatEvent_OnPrivateAction(this->ev, S_OK, &user, message);
+        }
+        else
+        {
+            IChatEvent_OnPrivateMessage(this->ev, S_OK, &user, message);
+        }
+    }
+}
+
 void hook_userip(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
     User user;
@@ -957,6 +1008,7 @@ IChat *IChat_New()
     irc_hook_add(this->irc, WOL_RPL_ENDOFMOTD, (irc_callback)hook_connect);
     irc_hook_add(this->irc, WOL_ERR_NOMOTD, (irc_callback)hook_connect);
     irc_hook_add(this->irc, "PING", (irc_callback)hook_ping);
+    irc_hook_add(this->irc, "PRIVMSG", (irc_callback)hook_privmsg);
     irc_hook_add(this->irc, "JOIN", (irc_callback)hook_join);
     irc_hook_add(this->irc, "JOINGAME", (irc_callback)hook_joingame);
     irc_hook_add(this->irc, "PART", (irc_callback)hook_part);

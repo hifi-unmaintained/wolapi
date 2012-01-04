@@ -81,6 +81,7 @@ struct _IChatEventVtbl
 #define IChatEvent_OnChannelJoin(T,a,b,c) (T)->lpVtbl->OnChannelJoin(T,a,b,c)
 #define IChatEvent_OnChannelLeave(T,a,b,c) (T)->lpVtbl->OnChannelLeave(T,a,b,c)
 #define IChatEvent_OnChannelTopic(T,a,b,c) (T)->lpVtbl->OnChannelTopic(T,a,b,c)
+#define IChatEvent_OnPrivateAction(T,a,b,c) (T)->lpVtbl->OnPrivateAction(T,a,b,c)
 #define IChatEvent_OnPublicAction(T,a,b,c,d) (T)->lpVtbl->OnPublicAction(T,a,b,c,d)
 #define IChatEvent_OnUserList(T,a,b,c) (T)->lpVtbl->OnUserList(T,a,b,c)
 #define IChatEvent_OnPublicMessage(T,a,b,c,d) (T)->lpVtbl->OnPublicMessage(T,a,b,c,d)
