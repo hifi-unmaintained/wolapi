@@ -24,7 +24,6 @@
 #define IRC_IBUFSIZ (IRC_BUFSIZ * 2)
 #define IRC_MAXPARAM 32
 
-#define WOL_RPL_ENDOFMOTD           "376"
 #define WOL_RPL_LISTSTART           "321"
 #define WOL_RPL_LISTGAME            "326"
 #define WOL_RPL_LIST                "327"
@@ -33,6 +32,11 @@
 #define WOL_RPL_TOPIC               "332"
 #define WOL_RPL_NAMREPLY            "353"
 #define WOL_RPL_ENDOFNAMES          "366"
+#define WOL_RPL_ENDOFMOTD           "376"
+#define WOL_RPL_MOTDSTART           "375"
+#define WOL_RPL_MOTD                "372"
+
+#define WOL_ERR_NOMOTD              "422"
 
 typedef struct _irc_session irc_session;
 typedef struct _irc_event irc_event;

@@ -576,10 +576,29 @@ static IChatVtbl Vtbl =
     _RequestSquadInfo
 };
 
+void hook_motdstart(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    this->motd[0] = '\0';
+
+    if (argc < 2)
+        return;
+
+    strcpy(this->motd, argv[1]);
+    strcat(this->motd, "\n");
+}
+
+void hook_motd(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    if (argc < 2)
+        return;
+
+    strcat(this->motd, argv[1]);
+    strcat(this->motd, "\n");
+}
+
 void hook_connect(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
-    dprintf("IChatEvent_OnConnection(%p, ...)\n", this->ev);
-    IChatEvent_OnConnection(this->ev, S_OK, "Connected.");
+    IChatEvent_OnConnection(this->ev, S_OK, this->motd);
 }
 
 void hook_liststart(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
@@ -925,7 +944,6 @@ IChat *IChat_New()
     this->irc = irc_create((void *)this);
 
     irc_hook_add(this->irc, "*", (irc_callback)hook_debug);
-    irc_hook_add(this->irc, WOL_RPL_ENDOFMOTD, (irc_callback)hook_connect);
     irc_hook_add(this->irc, WOL_RPL_LISTSTART, (irc_callback)hook_liststart);
     irc_hook_add(this->irc, WOL_RPL_LISTGAME, (irc_callback)hook_listgame);
     irc_hook_add(this->irc, WOL_RPL_LIST, (irc_callback)hook_list);
@@ -934,6 +952,10 @@ IChat *IChat_New()
     irc_hook_add(this->irc, WOL_RPL_ENDOFNAMES, (irc_callback)hook_endofnames);
     irc_hook_add(this->irc, WOL_RPL_NOTOPIC, (irc_callback)hook_notopic);
     irc_hook_add(this->irc, WOL_RPL_TOPIC, (irc_callback)hook_topic);
+    irc_hook_add(this->irc, WOL_RPL_MOTDSTART, (irc_callback)hook_motdstart);
+    irc_hook_add(this->irc, WOL_RPL_MOTD, (irc_callback)hook_motd);
+    irc_hook_add(this->irc, WOL_RPL_ENDOFMOTD, (irc_callback)hook_connect);
+    irc_hook_add(this->irc, WOL_ERR_NOMOTD, (irc_callback)hook_connect);
     irc_hook_add(this->irc, "PING", (irc_callback)hook_ping);
     irc_hook_add(this->irc, "JOIN", (irc_callback)hook_join);
     irc_hook_add(this->irc, "JOINGAME", (irc_callback)hook_joingame);
