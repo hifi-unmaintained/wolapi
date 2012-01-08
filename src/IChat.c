@@ -80,7 +80,7 @@ static HRESULT __stdcall _RequestServerList(IChat *this, unsigned long SKU, unsi
     irc.gametype = SKU;
     strcpy(irc.name, "Live chat server");
     strcpy(irc.connlabel, "IRC");
-    strcpy(irc.conndata, "TCP;irc.xwis.net;4000");
+    strcpy(irc.conndata, "TCP;irc.cncnet.org;6667");
 
     memset(&lad, 0, sizeof(Server));
     lad.gametype = SKU;
@@ -612,7 +612,7 @@ void hook_liststart(IChat *this, const char *prefix, const char *command, int ar
     WOL_LIST_FREE(this->channels);
 }
 
-void hook_list(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+void hook_listlobby(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
     if (argc > 4 && argv[1][0] == '#')
     {
@@ -828,6 +828,7 @@ void hook_joingame(IChat *this, const char *prefix, const char *command, int arg
     }
 
     sprintf(buf, "#%s's_game", this->user.name);
+    strcpy(this->channel.name, argv[7]+1);
 
     if (user.flags & CHAT_USER_MYSELF && strcmp(argv[7], buf) == 0)
     {
@@ -837,7 +838,6 @@ void hook_joingame(IChat *this, const char *prefix, const char *command, int arg
         this->channel.type = atoi(argv[2]);
         this->channel.tournament = atoi(argv[3]);
         this->channel.ipaddr = atol(argv[5]);
-        strcpy(this->channel.name, argv[7]+1);
 
         IChatEvent_OnChannelCreate(this->ev, S_OK, &this->channel);
 
@@ -997,7 +997,7 @@ IChat *IChat_New()
     irc_hook_add(this->irc, "*", (irc_callback)hook_debug);
     irc_hook_add(this->irc, WOL_RPL_LISTSTART, (irc_callback)hook_liststart);
     irc_hook_add(this->irc, WOL_RPL_LISTGAME, (irc_callback)hook_listgame);
-    irc_hook_add(this->irc, WOL_RPL_LIST, (irc_callback)hook_list);
+    irc_hook_add(this->irc, WOL_RPL_LISTLOBBY, (irc_callback)hook_listlobby);
     irc_hook_add(this->irc, WOL_RPL_LISTEND, (irc_callback)hook_listend);
     irc_hook_add(this->irc, WOL_RPL_NAMREPLY, (irc_callback)hook_namreply);
     irc_hook_add(this->irc, WOL_RPL_ENDOFNAMES, (irc_callback)hook_endofnames);

@@ -26,7 +26,7 @@
 
 #define WOL_RPL_LISTSTART           "321"
 #define WOL_RPL_LISTGAME            "326"
-#define WOL_RPL_LIST                "327"
+#define WOL_RPL_LISTLOBBY           "327"
 #define WOL_RPL_LISTEND             "323"
 #define WOL_RPL_NOTOPIC             "331"
 #define WOL_RPL_TOPIC               "332"
