@@ -84,3 +84,39 @@ HRESULT __stdcall DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 
     return CLASS_E_CLASSNOTAVAILABLE;
 }
+
+static HRESULT _CoCreateInstance(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID *ppv)
+{
+    dprintf("CoCreateInstance(irclsid={%s}, pUnkOuter=%p, dwClsContext=%08X, riid=%p, ppv=%p)\n", str_GUID(rclsid), pUnkOuter, dwClsContext, riid, ppv);
+
+    if (IsEqualIID(riid, &IID_IChat))
+    {
+        dprintf(" IChat interface requested, returning a new one\n");
+        *ppv = IChat_New();
+        return S_OK;
+    }
+
+    if (IsEqualIID(riid, &IID_INetUtil))
+    {
+        dprintf(" IChat interface requested, returning a new one\n");
+        *ppv = INetUtil_New();
+        return S_OK;
+    }
+
+    return DllGetClassObject(rclsid, riid, ppv);
+}
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+    if (fdwReason == DLL_PROCESS_ATTACH)
+    {
+        int *p_cocreate = (int *)0x005E6544;
+        if (*p_cocreate)
+        {
+            printf("wolapi: injecting to RA 3.03\n");
+            *p_cocreate = (int)_CoCreateInstance;
+        }
+    }
+
+    return TRUE;
+}
