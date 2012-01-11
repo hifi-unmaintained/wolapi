@@ -71,6 +71,12 @@ int irc_printf(irc_session *this, const char *fmt, ...)
     va_list args;
     char buf[512];
 
+    if (!this->s)
+    {
+        this->disconnect(this->ctx, NULL, NULL, 0, NULL);
+        return 0;
+    }
+
     va_start(args, fmt);
     vsprintf(buf, fmt, args);
     va_end(args);
@@ -176,12 +182,14 @@ void irc_pump(irc_session *this)
     FD_SET(this->s, &in_set);
 
     /* FIXME: validate that this is actually safe what I'm doin' */
-    if (select(this->s + 1, &in_set, NULL, NULL, &tv) > 0)
+    if (this->s && select(this->s + 1, &in_set, NULL, NULL, &tv) > 0)
     {
         len = recv(this->s, buf, IRC_BUFSIZ-1, 0);
 
         if (len == 0)
         {
+            close(this->s);
+            this->s = 0;
             this->disconnect(this->ctx, NULL, NULL, 0, NULL);
             return;
         }
@@ -215,7 +223,6 @@ irc_session *irc_create(void *ctx)
     WSADATA wsaData;
     WSAStartup(MAKEWORD(1, 1), &wsaData);
 
-    this->s = socket(AF_INET, SOCK_STREAM, 0);
     this->ctx = ctx;
     return this;
 }
@@ -226,6 +233,13 @@ int irc_connect(irc_session *this, const char *host, int port)
     struct hostent *hent = gethostbyname(host);
 
     dprintf("irc_connect(host=\"%s\", port=%d)\n", host, port);
+
+    if (this->s)
+    {
+        close(this->s);
+    }
+
+    this->s = socket(AF_INET, SOCK_STREAM, 0);
 
     if (!hent)
     {
@@ -259,7 +273,10 @@ void irc_close(irc_session *this)
             free(cur);
         }
 
-        close(this->s);
+        if (this->s)
+        {
+            close(this->s);
+        }
 
         free(this);
     }

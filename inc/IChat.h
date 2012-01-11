@@ -29,6 +29,7 @@
 #define CHAT_E_CON_ERROR            0x80040069 /* guess */
 #define CHAT_E_TIMEOUT              0x8004006A
 #define CHAT_E_MUSTPATCH            0x8004006C
+#define CHAT_E_UNKNOWNRESPONSE      0x8004006D
 #define CHAT_E_JOINCHANNEL          0x800401F5
 
 #define CHAT_S_CON_CONNECTING       0x0004012C /* guess */
@@ -70,6 +71,7 @@ struct _IChat
     int             ref;
     IChatEvent      *ev;
     unsigned long   SKU;
+    unsigned long   current_version;
     Server          server;
     User            user;
     User            *users;

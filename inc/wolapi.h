@@ -20,6 +20,9 @@
 #include <string.h>
 #include <time.h>
 
+#define WOL_SKU     0x00002B0C
+#define WOL_VERSION 0x00007F00
+
 #if _DEBUG
     #include <stdio.h>
     #define dprintf printf

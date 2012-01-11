@@ -35,8 +35,10 @@
 #define WOL_RPL_ENDOFMOTD           "376"
 #define WOL_RPL_MOTDSTART           "375"
 #define WOL_RPL_MOTD                "372"
+#define WOL_RPL_BADPASS             "378"
 
 #define WOL_ERR_NOMOTD              "422"
+#define WOL_ERR_NICKNAMEINUSE       "433"
 
 typedef struct _irc_session irc_session;
 typedef struct _irc_event irc_event;

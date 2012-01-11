@@ -90,7 +90,7 @@ static HRESULT __stdcall _RequestServerList(IChat *this, unsigned long SKU, unsi
     irc.gametype = SKU;
     strcpy(irc.name, "Live chat server");
     strcpy(irc.connlabel, "IRC");
-    strcpy(irc.conndata, "TCP;irc.cncnet.org;6667");
+    strcpy(irc.conndata, "TCP;irc.cncnet.org;5000");
 
     memset(&lad, 0, sizeof(Server));
     lad.gametype = SKU;
@@ -107,7 +107,8 @@ static HRESULT __stdcall _RequestServerList(IChat *this, unsigned long SKU, unsi
     irc.next = &lad;
     lad.next = &gam;
 
-    this->SKU = SKU; /* for debugging only */
+    this->SKU = SKU;
+    this->current_version = current_version;
 
     IChatEvent_OnServerList(this->ev, S_OK, &irc);
 
@@ -145,14 +146,14 @@ static HRESULT __stdcall _RequestConnection(IChat *this, Server* server, int tim
 
     IChatEvent_OnNetStatus(this->ev, CHAT_S_CON_CONNECTED);
 
-    irc_printf(this->irc, "CVERS %d %d", 11020, 5376);
+    irc_printf(this->irc, "CVERS %d %d", WOL_SKU, this->SKU);
     irc_printf(this->irc, "PASS %s", "supersecret");
     irc_printf(this->irc, "NICK %s", server->login);
     irc_printf(this->irc, "apgar %s 0", wol_apgar(server->password));
     irc_printf(this->irc, "");
     irc_printf(this->irc, "SERIAL %s", "");
     irc_printf(this->irc, "USER UserName HostName irc.westwood.com :RealName");
-    irc_printf(this->irc, "verchk %d %d", 32512, 270916);
+    irc_printf(this->irc, "verchk %d %d", WOL_VERSION, this->current_version);
 
     strcpy(this->user.name, server->login);
 
@@ -617,6 +618,16 @@ void hook_connect(IChat *this, const char *prefix, const char *command, int argc
     IChatEvent_OnConnection(this->ev, S_OK, this->motd);
 }
 
+void hook_badpass(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    IChatEvent_OnConnection(this->ev, CHAT_E_BADPASS, this->motd);
+}
+
+void hook_nicknameinuse(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    IChatEvent_OnConnection(this->ev, CHAT_E_NICKINUSE, this->motd);
+}
+
 void hook_liststart(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
 {
     WOL_LIST_FREE(this->channels);
@@ -713,6 +724,14 @@ void hook_part(IChat *this, const char *prefix, const char *command, int argc, c
         }
 
         IChatEvent_OnChannelLeave(this->ev, S_OK, &channel, &user);
+    }
+}
+
+void hook_error(IChat *this, const char *prefix, const char *command, int argc, const char *argv[])
+{
+    if (argc > 0)
+    {
+        IChatEvent_OnServerError(this->ev, CHAT_E_UNKNOWNRESPONSE, (char *)argv[0]);
     }
 }
 
@@ -1023,7 +1042,10 @@ IChat *IChat_New()
     irc_hook_add(this->irc, WOL_RPL_MOTDSTART, (irc_callback)hook_motdstart);
     irc_hook_add(this->irc, WOL_RPL_MOTD, (irc_callback)hook_motd);
     irc_hook_add(this->irc, WOL_RPL_ENDOFMOTD, (irc_callback)hook_connect);
+    irc_hook_add(this->irc, WOL_RPL_BADPASS, (irc_callback)hook_badpass);
     irc_hook_add(this->irc, WOL_ERR_NOMOTD, (irc_callback)hook_connect);
+    irc_hook_add(this->irc, WOL_ERR_NICKNAMEINUSE, (irc_callback)hook_nicknameinuse);
+    irc_hook_add(this->irc, "ERROR", (irc_callback)hook_error);
     irc_hook_add(this->irc, "PING", (irc_callback)hook_ping);
     irc_hook_add(this->irc, "PRIVMSG", (irc_callback)hook_privmsg);
     irc_hook_add(this->irc, "JOIN", (irc_callback)hook_join);
