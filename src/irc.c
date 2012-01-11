@@ -179,6 +179,13 @@ void irc_pump(irc_session *this)
     if (select(this->s + 1, &in_set, NULL, NULL, &tv) > 0)
     {
         len = recv(this->s, buf, IRC_BUFSIZ-1, 0);
+
+        if (len == 0)
+        {
+            this->disconnect(this->ctx, NULL, NULL, 0, NULL);
+            return;
+        }
+
         buf[len] = '\0';
         buf[IRC_BUFSIZ-1] = '\0';
 
@@ -255,6 +262,5 @@ void irc_close(irc_session *this)
         close(this->s);
 
         free(this);
-        this = NULL;
     }
 }

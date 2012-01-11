@@ -40,16 +40,16 @@
 
 typedef struct _irc_session irc_session;
 typedef struct _irc_event irc_event;
+typedef void (*irc_callback)(void *ctx, const char *prefix, const char *command, int argc, const char *argv[]);
 
 struct _irc_session
 {
     int s;
     char buf[IRC_IBUFSIZ];
     irc_event *events;
+    irc_callback disconnect;
     void *ctx;
 };
-
-typedef void (*irc_callback)(void *ctx, const char *prefix, const char *command, int argc, const char *argv[]);
 
 struct _irc_event
 {

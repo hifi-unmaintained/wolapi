@@ -54,7 +54,17 @@ static ULONG __stdcall _AddRef(IChat *this)
 static ULONG __stdcall _Release(IChat *this)
 {
     dprintf("IChat::Release(this=%p)\n", this);
-    return --this->ref;
+    this->ref--;
+
+    if (this->ref == 0)
+    {
+        dprintf(" releasing memory\n");
+        irc_close(this->irc);
+        free(this);
+        return 0;
+    }
+
+    return this->ref;
 }
 
 static HRESULT __stdcall _PumpMessages(IChat *this)
@@ -980,6 +990,12 @@ void hook_debug(IChat *this, const char *prefix, const char *command, int argc, 
     dprintf("\n");
 }
 
+void hook_disconnect(IChat *this, const char *prefix, const char *command, int argc, char *argv[])
+{
+    dprintf("IRC disconnected\n");
+    IChatEvent_OnNetStatus(this->ev, CHAT_S_CON_DISCONNECTED);
+}
+
 IChat *IChat_New()
 {
     IChat *this = calloc(1, sizeof(IChat));
@@ -993,6 +1009,7 @@ IChat *IChat_New()
     /* set self flag, don't know the correct value yet */
     this->user.flags = CHAT_USER_MYSELF;
     this->irc = irc_create((void *)this);
+    this->irc->disconnect = (irc_callback)hook_disconnect;
 
     irc_hook_add(this->irc, "*", (irc_callback)hook_debug);
     irc_hook_add(this->irc, WOL_RPL_LISTSTART, (irc_callback)hook_liststart);

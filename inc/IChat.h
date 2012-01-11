@@ -31,10 +31,10 @@
 #define CHAT_E_MUSTPATCH            0x8004006C
 #define CHAT_E_JOINCHANNEL          0x800401F5
 
-#define CHAT_S_CON_CONNECTING       S_OK
+#define CHAT_S_CON_CONNECTING       0x0004012C /* guess */
 #define CHAT_S_CON_CONNECTED        0x0004012D
-#define CHAT_S_CON_DISCONNECTING    0x0004012E
-#define CHAT_S_CON_DISCONNECTED     /*0x00040130*/ -1 /* seems to work with RA 3.03 */
+#define CHAT_S_CON_DISCONNECTING    0x0004012E /* guess */
+#define CHAT_S_CON_DISCONNECTED     0x0004012F
 
 #define CHAT_E_DISABLED             E_FAIL
 #define CHAT_E_SERIALBANNED         E_FAIL
@@ -142,6 +142,7 @@ struct _IChatVtbl
 #define IChat_RequestChannelCreate(T,a) (T)->lpVtbl->RequestChannelCreate(T,a)
 #define IChat_RequestChannelJoin(T,a) (T)->lpVtbl->RequestChannelJoin(T,a)
 #define IChat_RequestChannelLeave(T) (T)->lpVtbl->RequestChannelLeave(T)
+#define IChat_RequestLogout(T) (T)->lpVtbl->RequestLogout(T)
 #define IChat_RequestChannelTopic(T,a) (T)->lpVtbl->RequestChannelTopic(T,a)
 #define IChat_GetGametypeInfo(T,a,b,c,d,e,f) (T)->lpVtbl->GetGametypeInfo(T,a,b,c,d,e,f)
 #define IChat_GetGametypeList(T,a) (T)->lpVtbl->GetGametypeList(T,a)
